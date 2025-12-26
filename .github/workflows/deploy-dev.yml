@@ -1,0 +1,78 @@
+name: Deploy Dev
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: Dev
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Setup Gradle Wrapper
+        uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: 8.12
+
+      - name: Build with Gradle
+        run: ./gradlew build --no-daemon
+
+      - name: Find Server JAR
+        id: find_server_jar
+        run: |
+          # Find the server jar (ending in -server.jar)
+          SERVER_JAR=$(find build/libs -name "*-server.jar" | head -n 1)
+          
+          if [ -z "$SERVER_JAR" ]; then
+            echo "No Server JAR found!"
+            exit 1
+          fi
+          
+          echo "server_jar_path=$SERVER_JAR" >> $GITHUB_OUTPUT
+          echo "Found Server JAR: $SERVER_JAR"
+
+      - name: Install LFTP
+        run: sudo apt-get install -y lftp
+
+      - name: Add Server Key
+        env:
+            FTP_HOST_SECRET: ${{ secrets.FTP_DEV_HOST }}
+        run: |
+            mkdir -p ~/.ssh
+            # Clean the host variable: strip sftp://, ftp://, and potential port numbers
+            CLEAN_HOST=$(echo "$FTP_HOST_SECRET" | sed -E 's#^[a-z]+://##' | cut -d':' -f1)
+            echo "Scanning host: $CLEAN_HOST"
+            ssh-keyscan -p 2022 "$CLEAN_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload to FTP (Dev)
+        env:
+          FTP_HOST_SECRET: ${{ secrets.FTP_DEV_HOST }}
+          FTP_USER: ${{ secrets.FTP_DEV_USER }}
+          FTP_PASS: ${{ secrets.FTP_DEV_PASSWORD }}
+          FILE_PATH: ${{ steps.find_server_jar.outputs.server_jar_path }}
+        run: |
+          # Clean the host variable again for use in lftp
+          CLEAN_HOST=$(echo "$FTP_HOST_SECRET" | sed -E 's#^[a-z]+://##' | cut -d':' -f1)
+          
+          # Connecting to SFTP on port 2022
+          lftp -e "set net:timeout 20; set ssl:verify-certificate false; set sftp:auto-confirm yes; open sftp://$CLEAN_HOST:2022; user $FTP_USER $FTP_PASS; cd /mods; set cmd:fail-exit no; mrm thematic*.jar; set cmd:fail-exit yes; put -O . $FILE_PATH; bye"

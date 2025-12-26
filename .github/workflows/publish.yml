@@ -1,0 +1,165 @@
+name: Release & Publish
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: Publish
+    
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Get current version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(grep "mod_version=" gradle.properties | cut -d'=' -f2)
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+
+      - name: Generate new version
+        id: new_version
+        run: |
+          CURRENT_VERSION="${{ steps.current_version.outputs.current_version }}"
+          BRANCH="${{ github.ref_name }}"
+          
+          if [[ "$BRANCH" == "dev" ]]; then
+            # DEV BRANCH: Alpha Logic (Always append or increment -a suffix)
+            if [[ "$CURRENT_VERSION" =~ ^(.+)-a([0-9]+)$ ]]; then
+              BASE_VERSION="${BASH_REMATCH[1]}"
+              ALPHA_NUM="${BASH_REMATCH[2]}"
+              NEW_ALPHA_NUM=$((ALPHA_NUM + 1))
+              NEW_VERSION="${BASE_VERSION}-a${NEW_ALPHA_NUM}"
+            else
+              NEW_VERSION="${CURRENT_VERSION}-a1"
+            fi
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            
+          else
+            # MAIN BRANCH: Release Logic (Promote alpha or bump patch)
+            if [[ "$CURRENT_VERSION" =~ ^(.+)-a([0-9]+)$ ]]; then
+              # Promote Alpha to Release: Strip the -a suffix
+              NEW_VERSION="${BASH_REMATCH[1]}"
+            else
+              # Already a release: Bump Patch Version
+              # Regex to capture Major.Minor.Patch + Metadata
+              if [[ "$CURRENT_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(.*)$ ]]; then
+                MAJOR="${BASH_REMATCH[1]}"
+                MINOR="${BASH_REMATCH[2]}"
+                PATCH="${BASH_REMATCH[3]}"
+                REST="${BASH_REMATCH[4]}"
+                NEW_PATCH=$((PATCH + 1))
+                NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}${REST}"
+              else
+                 # Fallback
+                 NEW_VERSION="${CURRENT_VERSION}-1"
+              fi
+            fi
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+
+      - name: Update version
+        run: |
+          sed -i "s/mod_version=${{ steps.current_version.outputs.current_version }}/mod_version=${{ steps.new_version.outputs.new_version }}/" gradle.properties
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          LAST_TAG=$(git tag -l --sort=-version:refname | head -n1)
+          
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --oneline --no-merges | grep -vi "MERGE" | grep -vi "Bump version" | head -20 || echo "Initial release")
+          else
+            COMMITS=$(git log ${LAST_TAG}..HEAD --oneline --no-merges | grep -vi "MERGE" | grep -vi "Bump version" || echo "Bug fixes and improvements")
+          fi
+          
+          {
+            echo "commits<<EOF"
+            echo "$COMMITS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          
+          CHANGELOG="## Nuzlocke v${{ steps.new_version.outputs.new_version }}\n\n"
+          while IFS= read -r commit; do
+            CHANGELOG="${CHANGELOG}- ${commit}\n"
+          done <<< "$COMMITS"
+          
+          echo -e "$CHANGELOG" > /tmp/changelog.md
+          echo "changelog_file=/tmp/changelog.md" >> $GITHUB_OUTPUT
+
+      - name: Build
+        run: ./gradlew :fabric:build :neoforge:build -x test
+
+      - name: Create tag
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git tag -a "v${{ steps.new_version.outputs.new_version }}" -m "Release v${{ steps.new_version.outputs.new_version }}"
+          git push origin "v${{ steps.new_version.outputs.new_version }}"
+
+      - name: Find JARs
+        id: find_jars
+        run: |
+          # Find both Fabric and NeoForge jars
+          JARS=$(find */build/libs -name "*${{ steps.new_version.outputs.new_version }}.jar" ! -name "*-sources.jar" ! -name "*-dev.jar" | tr '\n' ' ')
+          echo "jar_files=$JARS" >> $GITHUB_OUTPUT
+          echo "Found: $JARS"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.new_version.outputs.new_version }}
+          name: "Nuzlocke v${{ steps.new_version.outputs.new_version }}"
+          body_path: /tmp/changelog.md
+          files: |
+            fabric/build/libs/nuzlocke-fabric-${{ steps.new_version.outputs.new_version }}.jar
+            neoforge/build/libs/nuzlocke-neoforge-${{ steps.new_version.outputs.new_version }}.jar
+          prerelease: ${{ steps.new_version.outputs.is_prerelease }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to Modrinth & CurseForge
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+        run: ./gradlew publishMods
+
+      - name: Commit version bump
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add gradle.properties
+          git commit -m "Bump version to ${{ steps.new_version.outputs.new_version }} [skip ci]" || exit 0
+          # Push to the specific branch we are on
+          git push origin HEAD:${{ github.ref_name }}

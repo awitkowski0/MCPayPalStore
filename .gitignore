@@ -1,0 +1,17 @@
+.gradle
+.idea
+.architectury-transformer
+
+/build/
+
+/fabric/run/
+/fabric/build/
+/fabric/.gradle
+
+/neoforge/run/
+/neoforge/build/
+/neoforge/.gradle
+
+/common/run/
+/common/build/
+/common/.gradle
