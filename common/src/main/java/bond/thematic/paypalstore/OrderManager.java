@@ -21,52 +21,79 @@ public class OrderManager {
 
     private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
-    public static void createOrder(ServerPlayer player, double amount, String currency, Runnable onSuccess) {
+    public static void createOrder(ServerPlayer player, bond.thematic.paypalstore.config.StoreConfig.StoreItem item,
+            Runnable onSuccess) {
         player.sendSystemMessage(Component.literal("Creating secure payment link...").withStyle(ChatFormatting.YELLOW));
 
-        PayPalService.createOrder(amount, currency, player.getGameProfile().getName()).thenAccept(response -> {
+        PayPalService.createOrder(item, player.getGameProfile().getName()).thenAccept(response -> {
             pendingOrders.put(response.id, player.getUUID().toString());
             orderCallbacks.put(response.id, onSuccess);
 
-            Component link = Component.literal(" [CLICK TO PAY] ")
-                    .setStyle(Style.EMPTY
-                            .withColor(ChatFormatting.GREEN)
-                            .withBold(true)
-                            .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, response.approveLink)));
+            bond.thematic.paypalstore.api.StoreEvents.ORDER_CREATED.invoker().onCreate(player, response.id, item.price,
+                    item.currency);
 
-            player.sendSystemMessage(Component.literal("Order #").append(response.id).append(" created!")
-                    .withStyle(ChatFormatting.AQUA).append(link));
+            String orderMsg = bond.thematic.paypalstore.config.StoreConfig.get().messages.orderCreated
+                    .replace("%id%", response.id)
+                    .replace("&", "§");
+
+            // We need to inject the CLICKABLE link into the message possibly?
+            // The config message is a single string.
+            // If the user wants a clickable part, they might need a split.
+            // Current default: "&bOrder #%id% created! &a[CLICK TO PAY]"
+            // We can detect [CLICK TO PAY] and wrap it?
+            // Or simpler: Send the message, then append the link if not present?
+            // For now, let's keep the hardcoded link style if the message contains [CLICK
+            // TO PAY],
+            // OR just construct it roughly.
+            // Let's assume standard formatting:
+
+            net.minecraft.network.chat.MutableComponent messageComp = Component.literal("");
+
+            // Very basic parser: split by [CLICK TO PAY]
+            if (orderMsg.contains("[CLICK TO PAY]")) {
+                String[] parts = orderMsg.split("\\[CLICK TO PAY\\]");
+                if (parts.length > 0)
+                    messageComp.append(Component.literal(parts[0]));
+
+                Component link = Component.literal("[CLICK TO PAY]")
+                        .setStyle(Style.EMPTY
+                                .withColor(ChatFormatting.GREEN)
+                                .withBold(true)
+                                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, response.approveLink)));
+                messageComp.append(link);
+
+                if (parts.length > 1)
+                    messageComp.append(Component.literal(parts[1]));
+            } else {
+                messageComp.append(Component.literal(orderMsg));
+                // Append valid link anyway if missing?
+                messageComp.append(Component.literal(" ")
+                        .append(Component.literal("[OPEN]")
+                                .setStyle(Style.EMPTY.withColor(ChatFormatting.GREEN).withClickEvent(
+                                        new ClickEvent(ClickEvent.Action.OPEN_URL, response.approveLink)))));
+            }
+
+            player.sendSystemMessage(messageComp);
             player.sendSystemMessage(
-                    Component.literal("Waiting for payment... (Checks every 5s)").withStyle(ChatFormatting.GRAY));
+                    Component.literal(
+                            bond.thematic.paypalstore.config.StoreConfig.get().messages.pollingWait.replace("&", "§")));
 
             // Start polling for this specific order
             schedulePoll(response.id, player.getServer(), player.getUUID(), 0);
         }).exceptionally(e -> {
-            player.sendSystemMessage(
-                    Component.literal("Error creating order: " + e.getMessage()).withStyle(ChatFormatting.RED));
+            String errorMsg = bond.thematic.paypalstore.config.StoreConfig.get().messages.paymentFailed
+                    .replace("%error%", e.getMessage())
+                    .replace("&", "§");
+            player.sendSystemMessage(Component.literal(errorMsg));
             return null;
         });
     }
 
     public static void completeOrder(String orderId) {
         Runnable callback = orderCallbacks.remove(orderId);
-        String playerUUID = pendingOrders.remove(orderId);
+        pendingOrders.remove(orderId);
 
         if (callback != null) {
-            // We need a thread context suitable for Minecraft (Main Thread) usually,
-            // but the callback is often run on the server thread by the caller or we
-            // schedule it.
-            // Since this might be called from HTTP thread or Command thread, let's just run
-            // it.
-            // But wait, the callback in StoreMenu expects to run on Server Thread?
-            // StoreMenu callback uses 'serverPlayer.getServer()' so it's thread safe-ish
-            // but logic might need main thread.
-            // Let's assume the caller handles threading or the callback does.
-            // Actually, best to try to find a server instance if possible, but here we
-            // don't have it easily static.
-            // Update: We passed 'player.getServer()' to schedulePoll, maybe we should store
-            // it?
-            // For now, simple run.
             try {
                 callback.run();
             } catch (Exception e) {
@@ -97,8 +124,16 @@ public class OrderManager {
                         // Notify player if online
                         ServerPlayer player = server.getPlayerList().getPlayer(playerUUID);
                         if (player != null) {
-                            player.sendSystemMessage(Component.literal("Payment Successful! processing rewards...")
-                                    .withStyle(ChatFormatting.GREEN));
+                            String successMsg = bond.thematic.paypalstore.config.StoreConfig
+                                    .get().messages.paymentSuccess.replace("&", "§");
+                            player.sendSystemMessage(Component.literal(successMsg));
+                            bond.thematic.paypalstore.api.StoreEvents.PAYMENT_COMPLETED.invoker().onComplete(player,
+                                    orderId);
+                        } else {
+                            // Player offline, still fire event with null player?
+                            // API says nullable player.
+                            bond.thematic.paypalstore.api.StoreEvents.PAYMENT_COMPLETED.invoker().onComplete(null,
+                                    orderId);
                         }
                         completeOrder(orderId);
                     });

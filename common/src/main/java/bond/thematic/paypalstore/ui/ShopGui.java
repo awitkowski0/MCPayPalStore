@@ -1,12 +1,13 @@
 package bond.thematic.paypalstore.ui;
 
 import bond.thematic.paypalstore.config.StoreConfig;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 
 public class ShopGui {
     public static void open(ServerPlayer player) {
@@ -17,9 +18,53 @@ public class ShopGui {
             if (slot >= 27)
                 break;
 
-            ItemStack stack = new ItemStack(Items.EMERALD); // Placeholder icon
-            stack.setHoverName(Component.literal(item.name).withStyle(s -> s.withColor(0x00FF00)));
-            // We could add lore with price
+            net.minecraft.world.item.Item mcItem = BuiltInRegistries.ITEM.get(new ResourceLocation(
+                    item.itemIcon != null && !item.itemIcon.isEmpty() ? item.itemIcon : "minecraft:emerald"));
+            ItemStack stack = new ItemStack(mcItem);
+
+            if (item.customModelData > 0) {
+                stack.getOrCreateTag().putInt("CustomModelData", item.customModelData);
+            }
+
+            stack.setHoverName(Component.literal(item.name.replace("&", "§")));
+
+            // Lore
+            java.util.List<Component> lore = new java.util.ArrayList<>();
+            // Description
+            for (String line : item.description) {
+                lore.add(Component.literal(line.replace("&", "§")));
+            }
+            lore.add(Component.empty());
+
+            // Price
+            lore.add(Component.literal("Price: " + String.format("%.2f", item.price) + " " + item.currency)
+                    .withStyle(net.minecraft.ChatFormatting.GOLD));
+
+            // Requirement
+            if (item.requiredPermission != null && !item.requiredPermission.isEmpty()) {
+                lore.add(Component.literal("Requires: " + item.requiredPermission)
+                        .withStyle(net.minecraft.ChatFormatting.RED));
+            }
+            // Expiry
+            if (item.expiry != null && !item.expiry.isEmpty()) {
+                lore.add(Component.literal("Expires: " + item.expiry).withStyle(net.minecraft.ChatFormatting.GRAY));
+            }
+
+            // Right-click hint
+            if (!item.previewItems.isEmpty()) {
+                lore.add(Component.empty());
+                lore.add(Component.literal("Right-Click to Preview").withStyle(net.minecraft.ChatFormatting.YELLOW));
+            }
+
+            // Click hint
+            lore.add(Component.empty());
+            lore.add(Component.literal("Left-Click to Buy").withStyle(net.minecraft.ChatFormatting.GREEN));
+
+            net.minecraft.nbt.ListTag loreTag = new net.minecraft.nbt.ListTag();
+            for (Component c : lore) {
+                loreTag.add(net.minecraft.nbt.StringTag.valueOf(Component.Serializer.toJson(c)));
+            }
+            stack.getOrCreateTagElement("display").put("Lore", loreTag);
 
             inventory.setItem(slot, stack);
             slot++;

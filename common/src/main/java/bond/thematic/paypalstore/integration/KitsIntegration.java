@@ -1,9 +1,7 @@
 package bond.thematic.paypalstore.integration;
 
 import dev.architectury.platform.Platform;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 
 import java.util.Collections;
 import java.util.List;
@@ -14,18 +12,31 @@ public class KitsIntegration {
     }
 
     public static List<ItemStack> getKitItems(String kitId) {
-        if (!isLoaded()) {
-            return Collections.emptyList();
-        }
+        // We do NOT check isLoaded() because we are reading config files directly.
+        // This allows the preview to work even if the mod isn't loaded (as long as the
+        // configs exist).
 
         try {
-            // Placeholder since we don't have the API
-            ItemStack placeholder = new ItemStack(Items.CHEST);
-            placeholder.setHoverName(Component.literal("Kit: " + kitId));
-            return List.of(placeholder);
+            java.nio.file.Path kitPath = dev.architectury.platform.Platform.getConfigFolder()
+                    .resolve("kits/" + kitId + ".nbt");
+
+            if (java.nio.file.Files.exists(kitPath)) {
+                net.minecraft.nbt.CompoundTag tag = net.minecraft.nbt.NbtIo.readCompressed(kitPath.toFile());
+                // The Kits mod saves items in an "inventory" list tag
+                if (tag.contains("inventory")) {
+                    net.minecraft.nbt.ListTag inventoryTag = tag.getList("inventory", 10); // 10 = Compound
+                    List<ItemStack> items = new java.util.ArrayList<>();
+
+                    for (int i = 0; i < inventoryTag.size(); i++) {
+                        net.minecraft.nbt.CompoundTag itemTag = inventoryTag.getCompound(i);
+                        items.add(ItemStack.of(itemTag));
+                    }
+                    return items;
+                }
+            }
         } catch (Exception e) {
             e.printStackTrace();
-            return Collections.emptyList();
         }
+        return Collections.emptyList();
     }
 }

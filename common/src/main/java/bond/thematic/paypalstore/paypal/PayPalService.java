@@ -51,28 +51,45 @@ public class PayPalService {
                 });
     }
 
-    public static CompletableFuture<OrderResponse> createOrder(double amount, String currency, String customId) {
+    public static CompletableFuture<OrderResponse> createOrder(
+            bond.thematic.paypalstore.config.StoreConfig.StoreItem item, String customId) {
         return getAccessToken().thenCompose(token -> {
             JsonObject orderRequest = new JsonObject();
             orderRequest.addProperty("intent", "CAPTURE");
 
             JsonObject purchaseUnit = new JsonObject();
             JsonObject amountJson = new JsonObject();
-            amountJson.addProperty("currency_code", currency);
-            amountJson.addProperty("value", String.format("%.2f", amount));
+            amountJson.addProperty("currency_code", item.currency);
+            amountJson.addProperty("value", String.format("%.2f", item.price));
             purchaseUnit.add("amount", amountJson);
             purchaseUnit.addProperty("custom_id", customId);
+
+            // Description (Strip colors)
+            if (item.description != null && !item.description.isEmpty()) {
+                String desc = String.join(" ", item.description).replaceAll("&[0-9a-fk-or]", "")
+                        .replaceAll("§[0-9a-fk-or]", "");
+                if (desc.length() > 127)
+                    desc = desc.substring(0, 124) + "...";
+                purchaseUnit.addProperty("description", desc);
+            }
+
+            // Soft Descriptor
+            if (StoreConfig.get().softDescriptor != null && !StoreConfig.get().softDescriptor.isEmpty()) {
+                purchaseUnit.addProperty("soft_descriptor", StoreConfig.get().softDescriptor);
+            }
 
             com.google.gson.JsonArray purchaseUnits = new com.google.gson.JsonArray();
             purchaseUnits.add(purchaseUnit);
             orderRequest.add("purchase_units", purchaseUnits);
 
-            // Allow the user to pay without logging in (guest checkout) if possible, though
-            // 'landing_page' is in application_context
             JsonObject applicationContext = new JsonObject();
-            applicationContext.addProperty("landing_page", "BILLING"); // Prefer non-login checkout
+            // Global Configs
+            applicationContext.addProperty("brand_name", StoreConfig.get().brandName);
+            applicationContext.addProperty("landing_page", StoreConfig.get().landingPage);
+            applicationContext.addProperty("shipping_preference", "NO_SHIPPING"); // Forced
+
             applicationContext.addProperty("user_action", "PAY_NOW");
-            applicationContext.addProperty("return_url", "https://example.com/return"); // Placeholder, we poll
+            applicationContext.addProperty("return_url", "https://example.com/return"); // Placeholder
             applicationContext.addProperty("cancel_url", "https://example.com/cancel");
             orderRequest.add("application_context", applicationContext);
 
