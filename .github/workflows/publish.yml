@@ -203,4 +203,4 @@ jobs:
           CLEAN_HOST=$(echo "$FTP_HOST_SECRET" | sed -E 's#^[a-z]+://##' | cut -d':' -f1)
           
           # Connecting to SFTP on port 2022
-          lftp -e "set net:timeout 20; set ssl:verify-certificate false; set sftp:auto-confirm yes; open sftp://$CLEAN_HOST:2022; user $FTP_USER $FTP_PASS; cd /mods; set cmd:fail-exit no; mrm thematic*.jar; set cmd:fail-exit yes; put -O . $FILE_PATH; bye"
+          lftp -e "set net:timeout 20; set ssl:verify-certificate false; set sftp:auto-confirm yes; open sftp://$CLEAN_HOST:2022; user $FTP_USER $FTP_PASS; cd /mods; set cmd:fail-exit no; mrm paypalstore*.jar; set cmd:fail-exit yes; put -O . $FILE_PATH; bye"
