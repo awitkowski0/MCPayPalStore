@@ -65,13 +65,36 @@ public class PayPalService {
             purchaseUnit.addProperty("custom_id", customId);
 
             // Description (Strip colors)
+            String desc = "";
             if (item.description != null && !item.description.isEmpty()) {
-                String desc = String.join(" ", item.description).replaceAll("&[0-9a-fk-or]", "")
+                desc = String.join(" ", item.description).replaceAll("&[0-9a-fk-or]", "")
                         .replaceAll("§[0-9a-fk-or]", "");
                 if (desc.length() > 127)
                     desc = desc.substring(0, 124) + "...";
                 purchaseUnit.addProperty("description", desc);
             }
+
+            // Add Item Details for Checkout UI
+            com.google.gson.JsonArray itemsArray = new com.google.gson.JsonArray();
+            JsonObject itemObj = new JsonObject();
+            itemObj.addProperty("name", item.name.replaceAll("&[0-9a-fk-or]", "").replaceAll("§[0-9a-fk-or]", ""));
+            if (!desc.isEmpty()) {
+                itemObj.addProperty("description", desc);
+            }
+            itemObj.addProperty("quantity", "1");
+
+            JsonObject unitAmount = new JsonObject();
+            unitAmount.addProperty("currency_code", item.currency);
+            unitAmount.addProperty("value", String.format("%.2f", item.price));
+            itemObj.add("unit_amount", unitAmount);
+
+            itemsArray.add(itemObj);
+            purchaseUnit.add("items", itemsArray);
+
+            // Add breakdown to match total
+            JsonObject breakdown = new JsonObject();
+            breakdown.add("item_total", unitAmount);
+            amountJson.add("breakdown", breakdown);
 
             // Soft Descriptor
             if (StoreConfig.get().softDescriptor != null && !StoreConfig.get().softDescriptor.isEmpty()) {

@@ -20,8 +20,14 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 public class PreviewMenu extends ChestMenu {
-    public PreviewMenu(int syncId, Inventory playerInventory, Container container, ServerPlayer player) {
+    private final StoreConfig.StoreItem item;
+    private final ServerPlayer player;
+
+    public PreviewMenu(int syncId, Inventory playerInventory, Container container, ServerPlayer player,
+            StoreConfig.StoreItem item) {
         super(MenuType.GENERIC_9x6, syncId, playerInventory, container, 6);
+        this.player = player;
+        this.item = item;
     }
 
     public static void open(ServerPlayer player, StoreConfig.StoreItem item) {
@@ -54,13 +60,19 @@ public class PreviewMenu extends ChestMenu {
             inventory.setItem(49, info);
         }
 
+        // Buy Button
+        ItemStack buy = new ItemStack(Items.EMERALD_BLOCK);
+        buy.setHoverName(Component.literal("Buy for " + item.price + " " + item.currency)
+                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+        inventory.setItem(50, buy);
+
         // Back Button
         ItemStack back = new ItemStack(Items.ARROW);
         back.setHoverName(Component.literal("Back to Shop").withStyle(ChatFormatting.RED));
         inventory.setItem(53, back);
 
         player.openMenu(new SimpleMenuProvider((syncId, playerInventory, playerEntity) -> {
-            return new PreviewMenu(syncId, playerInventory, inventory, player);
+            return new PreviewMenu(syncId, playerInventory, inventory, player, item);
         }, Component.literal("Preview: " + item.name)));
     }
 
@@ -106,6 +118,45 @@ public class PreviewMenu extends ChestMenu {
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
         // Cancel all clicks in top inventory
         if (slotId >= 0 && slotId < this.getContainer().getContainerSize()) {
+            if (slotId == 50) { // Buy Button
+                if (this.player != null && this.item != null) {
+                    this.player.closeContainer();
+
+                    if (item.paymentUrl != null && !item.paymentUrl.isEmpty()) {
+                        // Use static NCP link
+                        String finalUrl = item.paymentUrl;
+                        if (!finalUrl.contains("?")) {
+                            finalUrl += "?custom=" + this.player.getGameProfile().getName();
+                        } else {
+                            finalUrl += "&custom=" + this.player.getGameProfile().getName();
+                        }
+
+                        Component link = Component.literal(" [CLICK TO PAY] ")
+                                .setStyle(net.minecraft.network.chat.Style.EMPTY
+                                        .withColor(ChatFormatting.GREEN)
+                                        .withBold(true)
+                                        .withClickEvent(new net.minecraft.network.chat.ClickEvent(
+                                                net.minecraft.network.chat.ClickEvent.Action.OPEN_URL, finalUrl)));
+
+                        this.player.sendSystemMessage(Component.literal("Opening payment link for " + item.name + "...")
+                                .withStyle(ChatFormatting.YELLOW).append(link));
+                        this.player.sendSystemMessage(Component
+                                .literal(
+                                        "NOTE: verification for this item is manual or requires server-side IPN setup.")
+                                .withStyle(ChatFormatting.RED));
+                        return;
+                    }
+
+                    bond.thematic.paypalstore.OrderManager.createOrder(this.player, this.item, () -> {
+                        // Execute commands
+                        for (String cmd : item.commands) {
+                            this.player.getServer().getCommands().performPrefixedCommand(
+                                    this.player.getServer().createCommandSourceStack(),
+                                    cmd.replace("%player%", this.player.getGameProfile().getName()));
+                        }
+                    });
+                }
+            }
             if (slotId == 53) { // Back button
                 if (player instanceof ServerPlayer serverPlayer) {
                     ShopGui.open(serverPlayer);

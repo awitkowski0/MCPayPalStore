@@ -21,6 +21,19 @@ public class StoreConfig {
         if (Files.exists(CONFIG_PATH)) {
             try (FileReader reader = new FileReader(CONFIG_PATH.toFile())) {
                 instance = GSON.fromJson(reader, ConfigData.class);
+
+                // Sanity check for null lists (GSON can leave them null if explicit null in
+                // JSON)
+                if (instance != null && instance.items != null) {
+                    for (StoreItem item : instance.items) {
+                        if (item.previewItems == null)
+                            item.previewItems = new ArrayList<>();
+                        if (item.description == null)
+                            item.description = new ArrayList<>();
+                        if (item.commands == null)
+                            item.commands = new ArrayList<>();
+                    }
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
