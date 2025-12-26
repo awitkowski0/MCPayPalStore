@@ -15,10 +15,10 @@
   "environment": "*",
   "entrypoints": {
     "main": [
-      "bond.thematic.paypalstore.fabric.PaypalstoreFabric"
+      "bond.thematic.paypalstore.fabric.PayPalStoreFabric"
     ],
     "client": [
-      "bond.thematic.paypalstore.fabric.client.PaypalstoreFabricClient"
+      "bond.thematic.paypalstore.fabric.client.PayPalStoreFabricClient"
     ]
   },
   "mixins": [
