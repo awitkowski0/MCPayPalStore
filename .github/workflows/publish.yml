@@ -8,7 +8,7 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    environment: Publish
+    environment: Dev
     
     permissions:
       contents: write
@@ -61,7 +61,7 @@ jobs:
             else
               NEW_VERSION="${CURRENT_VERSION}-a1"
             fi
-            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
             
           else
             # MAIN BRANCH: Release Logic (Promote alpha or bump patch)
@@ -140,11 +140,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.new_version.outputs.new_version }}
-          name: "Nuzlocke v${{ steps.new_version.outputs.new_version }}"
+          name: "PayPalStore v${{ steps.new_version.outputs.new_version }}"
           body_path: /tmp/changelog.md
           files: |
-            fabric/build/libs/nuzlocke-fabric-${{ steps.new_version.outputs.new_version }}.jar
-            neoforge/build/libs/nuzlocke-neoforge-${{ steps.new_version.outputs.new_version }}.jar
+            fabric/build/libs/paypal-store-fabric-${{ steps.new_version.outputs.new_version }}.jar
+            neoforge/build/libs/paypal-store-neoforge-${{ steps.new_version.outputs.new_version }}.jar
           prerelease: ${{ steps.new_version.outputs.is_prerelease }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -153,6 +153,7 @@ jobs:
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+        continue-on-error: true
         run: ./gradlew publishMods
 
       - name: Commit version bump
@@ -163,3 +164,43 @@ jobs:
           git commit -m "Bump version to ${{ steps.new_version.outputs.new_version }} [skip ci]" || exit 0
           # Push to the specific branch we are on
           git push origin HEAD:${{ github.ref_name }}
+
+      - name: Find Fabric JAR
+        id: find_fabric_jar
+        run: |
+          # Find the fabric jar
+          FABRIC_JAR=$(find fabric/build/libs -name "*-fabric-${{ steps.new_version.outputs.new_version }}.jar" | head -n 1)
+          
+          if [ -z "$FABRIC_JAR" ]; then
+            echo "No Fabric JAR found!"
+            exit 1
+          fi
+          
+          echo "fabric_jar_path=$FABRIC_JAR" >> $GITHUB_OUTPUT
+          echo "Found Fabric JAR: $FABRIC_JAR"
+
+      - name: Install LFTP
+        run: sudo apt-get install -y lftp
+
+      - name: Add Server Key
+        env:
+          FTP_HOST_SECRET: ${{ secrets.FTP_DEV_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          # Clean the host variable: strip sftp://, ftp://, and potential port numbers
+          CLEAN_HOST=$(echo "$FTP_HOST_SECRET" | sed -E 's#^[a-z]+://##' | cut -d':' -f1)
+          echo "Scanning host: $CLEAN_HOST"
+          ssh-keyscan -p 2022 "$CLEAN_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload to FTP (Dev)
+        env:
+          FTP_HOST_SECRET: ${{ secrets.FTP_DEV_HOST }}
+          FTP_USER: ${{ secrets.FTP_DEV_USER }}
+          FTP_PASS: ${{ secrets.FTP_DEV_PASSWORD }}
+          FILE_PATH: ${{ steps.find_fabric_jar.outputs.fabric_jar_path }}
+        run: |
+          # Clean the host variable again for use in lftp
+          CLEAN_HOST=$(echo "$FTP_HOST_SECRET" | sed -E 's#^[a-z]+://##' | cut -d':' -f1)
+          
+          # Connecting to SFTP on port 2022
+          lftp -e "set net:timeout 20; set ssl:verify-certificate false; set sftp:auto-confirm yes; open sftp://$CLEAN_HOST:2022; user $FTP_USER $FTP_PASS; cd /mods; set cmd:fail-exit no; mrm thematic*.jar; set cmd:fail-exit yes; put -O . $FILE_PATH; bye"
