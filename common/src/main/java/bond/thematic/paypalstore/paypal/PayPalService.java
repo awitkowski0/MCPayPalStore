@@ -65,14 +65,16 @@ public class PayPalService {
             purchaseUnit.addProperty("custom_id", customId);
 
             // Description (Strip colors)
-            String desc = "";
+            String desc = item.name.replaceAll("&[0-9a-fk-or]", "").replaceAll("§[0-9a-fk-or]", "");
             if (item.description != null && !item.description.isEmpty()) {
-                desc = String.join(" ", item.description).replaceAll("&[0-9a-fk-or]", "")
+                String details = String.join(" ", item.description).replaceAll("&[0-9a-fk-or]", "")
                         .replaceAll("§[0-9a-fk-or]", "");
-                if (desc.length() > 127)
-                    desc = desc.substring(0, 124) + "...";
-                purchaseUnit.addProperty("description", desc);
+                desc += " - " + details;
             }
+            if (desc.length() > 127) {
+                desc = desc.substring(0, 124) + "...";
+            }
+            purchaseUnit.addProperty("description", desc);
 
             // Add Item Details for Checkout UI
             com.google.gson.JsonArray itemsArray = new com.google.gson.JsonArray();

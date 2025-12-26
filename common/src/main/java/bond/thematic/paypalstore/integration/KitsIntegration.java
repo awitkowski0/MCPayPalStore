@@ -21,7 +21,14 @@ public class KitsIntegration {
                     .resolve("kits/" + kitId + ".nbt");
 
             if (java.nio.file.Files.exists(kitPath)) {
-                net.minecraft.nbt.CompoundTag tag = net.minecraft.nbt.NbtIo.readCompressed(kitPath.toFile());
+                net.minecraft.nbt.CompoundTag tag;
+                try {
+                    tag = net.minecraft.nbt.NbtIo.readCompressed(kitPath.toFile());
+                } catch (java.util.zip.ZipException | java.io.UTFDataFormatException e) {
+                    // Fallback to uncompressed read
+                    tag = net.minecraft.nbt.NbtIo.read(kitPath.toFile());
+                }
+
                 // The Kits mod saves items in an "inventory" list tag
                 if (tag.contains("inventory")) {
                     net.minecraft.nbt.ListTag inventoryTag = tag.getList("inventory", 10); // 10 = Compound
