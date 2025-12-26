@@ -6,8 +6,8 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 @Mod(PayPalStore.MOD_ID)
-public final class PaypalstoreForge {
-    public PaypalstoreForge() {
+public final class PayPalStoreForge {
+    public PayPalStoreForge() {
         // Submit our event bus to let Architectury API register our content on the
         // right time.
         EventBuses.registerModEventBus(PayPalStore.MOD_ID, FMLJavaModLoadingContext.get().getModEventBus());

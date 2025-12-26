@@ -110,7 +110,7 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
           
-          CHANGELOG="## Nuzlocke v${{ steps.new_version.outputs.new_version }}\n\n"
+          CHANGELOG="## PayPalStore v${{ steps.new_version.outputs.new_version }}\n\n"
           while IFS= read -r commit; do
             CHANGELOG="${CHANGELOG}- ${commit}\n"
           done <<< "$COMMITS"
