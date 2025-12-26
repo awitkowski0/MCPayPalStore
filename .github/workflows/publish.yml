@@ -119,7 +119,7 @@ jobs:
           echo "changelog_file=/tmp/changelog.md" >> $GITHUB_OUTPUT
 
       - name: Build
-        run: ./gradlew :fabric:build :neoforge:build -x test
+        run: ./gradlew :fabric:build :forge:build -x test
 
       - name: Create tag
         run: |
@@ -144,7 +144,7 @@ jobs:
           body_path: /tmp/changelog.md
           files: |
             fabric/build/libs/paypal-store-fabric-${{ steps.new_version.outputs.new_version }}.jar
-            neoforge/build/libs/paypal-store-neoforge-${{ steps.new_version.outputs.new_version }}.jar
+            forge/build/libs/paypal-store-forge-${{ steps.new_version.outputs.new_version }}.jar
           prerelease: ${{ steps.new_version.outputs.is_prerelease }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
