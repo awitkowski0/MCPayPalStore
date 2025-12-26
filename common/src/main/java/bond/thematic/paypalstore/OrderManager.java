@@ -20,7 +20,7 @@ public class OrderManager {
     public static void createOrder(ServerPlayer player, double amount, String currency, Runnable onSuccess) {
         player.sendSystemMessage(Component.literal("Creating secure payment link...").withStyle(ChatFormatting.YELLOW));
 
-        PayPalService.createOrder(amount, currency).thenAccept(response -> {
+        PayPalService.createOrder(amount, currency, player.getGameProfile().getName()).thenAccept(response -> {
             pendingOrders.put(response.id, player.getUUID().toString());
 
             Component link = Component.literal(" [CLICK TO PAY] ")

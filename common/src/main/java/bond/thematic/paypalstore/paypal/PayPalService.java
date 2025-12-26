@@ -51,7 +51,7 @@ public class PayPalService {
                 });
     }
 
-    public static CompletableFuture<OrderResponse> createOrder(double amount, String currency) {
+    public static CompletableFuture<OrderResponse> createOrder(double amount, String currency, String customId) {
         return getAccessToken().thenCompose(token -> {
             JsonObject orderRequest = new JsonObject();
             orderRequest.addProperty("intent", "CAPTURE");
@@ -61,6 +61,7 @@ public class PayPalService {
             amountJson.addProperty("currency_code", currency);
             amountJson.addProperty("value", String.format("%.2f", amount));
             purchaseUnit.add("amount", amountJson);
+            purchaseUnit.addProperty("custom_id", customId);
 
             com.google.gson.JsonArray purchaseUnits = new com.google.gson.JsonArray();
             purchaseUnits.add(purchaseUnit);

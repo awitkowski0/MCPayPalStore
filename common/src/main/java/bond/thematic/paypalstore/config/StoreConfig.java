@@ -50,6 +50,7 @@ public class StoreConfig {
         public String clientId = "YOUR_CLIENT_ID";
         public String clientSecret = "YOUR_CLIENT_SECRET";
         public boolean sandbox = true;
+        public boolean debug = false;
         public int webhookPort = 8080;
         public boolean useWebhooks = false;
         public List<StoreItem> items = new ArrayList<>();

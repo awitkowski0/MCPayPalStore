@@ -65,9 +65,9 @@ public class StoreMenu extends ChestMenu {
                 // Use static NCP link
                 String finalUrl = item.paymentUrl;
                 if (!finalUrl.contains("?")) {
-                    finalUrl += "?custom=" + serverPlayer.getStringUUID();
+                    finalUrl += "?custom=" + serverPlayer.getGameProfile().getName();
                 } else {
-                    finalUrl += "&custom=" + serverPlayer.getStringUUID();
+                    finalUrl += "&custom=" + serverPlayer.getGameProfile().getName();
                 }
 
                 Component link = Component.literal(" [CLICK TO PAY] ")
