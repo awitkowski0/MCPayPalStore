@@ -21,6 +21,25 @@ public class StoreCommands {
                                         false);
                                 return 1;
                             }));
+                    dispatcher.register(Commands.literal("paypal")
+                            .requires(source -> source.hasPermission(4))
+                            .then(Commands.literal("complete-test")
+                                    .then(Commands
+                                            .argument("orderId",
+                                                    com.mojang.brigadier.arguments.StringArgumentType.string())
+                                            .executes(context -> {
+                                                String orderId = com.mojang.brigadier.arguments.StringArgumentType
+                                                        .getString(context, "orderId");
+                                                bond.thematic.paypalstore.OrderManager.completeOrder(orderId);
+                                                context.getSource()
+                                                        .sendSuccess(
+                                                                () -> Component
+                                                                        .literal("Forced completion of order: "
+                                                                                + orderId)
+                                                                        .withStyle(net.minecraft.ChatFormatting.GREEN),
+                                                                true);
+                                                return 1;
+                                            }))));
                 });
     }
 }
