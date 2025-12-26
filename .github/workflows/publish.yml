@@ -143,8 +143,8 @@ jobs:
           name: "PayPalStore v${{ steps.new_version.outputs.new_version }}"
           body_path: /tmp/changelog.md
           files: |
-            fabric/build/libs/paypal-store-fabric-${{ steps.new_version.outputs.new_version }}.jar
-            forge/build/libs/paypal-store-forge-${{ steps.new_version.outputs.new_version }}.jar
+            fabric/build/libs/paypalstore-fabric-${{ steps.new_version.outputs.new_version }}.jar
+            forge/build/libs/paypalstore-forge-${{ steps.new_version.outputs.new_version }}.jar
           prerelease: ${{ steps.new_version.outputs.is_prerelease }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -169,7 +169,7 @@ jobs:
         id: find_fabric_jar
         run: |
           # Find the fabric jar
-          FABRIC_JAR=$(find fabric/build/libs -name "*-fabric-${{ steps.new_version.outputs.new_version }}.jar" | head -n 1)
+          FABRIC_JAR=$(find fabric/build/libs -name "paypalstore-fabric-${{ steps.new_version.outputs.new_version }}.jar" | head -n 1)
           
           if [ -z "$FABRIC_JAR" ]; then
             echo "No Fabric JAR found!"
