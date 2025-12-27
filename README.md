@@ -27,6 +27,21 @@ The configuration file is located at `config/paypal_store.json`.
 {
   "clientId": "YOUR_CLIENT_ID",
   "clientSecret": "YOUR_CLIENT_SECRET",
+  "sandbox": true,
+  "brandName": "My Server Store",
+  "landingPage": "BILLING",
+  "softDescriptor": "PAYPAL *MCSTORE",
+  "messages": {
+    "orderCreated": "&bOrder #%id% created! &a[CLICK TO PAY]",
+    "pollingWait": "&7Waiting for payment... (Checks every 5s)",
+    "paymentSuccess": "&aPayment Successful! Processing rewards...",
+    "paymentFailed": "&cError processing payment: %error%",
+    "priceFormat": "&7Price: %price% %currency%",
+    "clickToPreview": "&eRight-Click to Preview",
+    "clickToBuy": "&aLeft-Click to Buy",
+    "buyButton": "Buy for %price% %currency%",
+    "backToShopButton": "Back to Shop"
+  },
   "items": [
     {
       "id": "vip_rank",
@@ -51,6 +66,16 @@ The configuration file is located at `config/paypal_store.json`.
   ]
 }
 ```
+
+### Global Settings
+- **brandName**: The name displayed at the top of the PayPal checkout page.
+- **landingPage**: The initial PayPal page (`BILLING` for non-PayPal guest checkout, `LOGIN` for standard login).
+- **softDescriptor**: The text appearing on the customer's credit card statement (max 22 chars).
+
+### GUI Messages
+- **Customization**: All messages support `&` color codes.
+- **Hiding Messages**: Set any message (e.g., `clickToPreview`) to `""` (empty string) to completely hide it from the GUI.
+- **backToShopButton**: Text for the button in the Preview menu returning to the main list.
 
 ### Item Configuration
 -   **previewItems**: A list of items shown when right-clicking the shop item.

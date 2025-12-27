@@ -129,7 +129,7 @@ public class PreviewMenu extends ChestMenu {
 
         player.openMenu(new SimpleMenuProvider((syncId, playerInventory, playerEntity) -> {
             return new PreviewMenu(syncId, playerInventory, inventory, player, item);
-        }, Component.literal("Preview: " + ChatFormatting.stripFormatting(item.name))));
+        }, Component.literal("Preview: " + ChatFormatting.stripFormatting(item.name.replace("&", "§")))));
     }
 
     private static ItemStack parseStack(String itemStr) {

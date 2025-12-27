@@ -107,21 +107,33 @@ public class PayPalService {
             purchaseUnits.add(purchaseUnit);
             orderRequest.add("purchase_units", purchaseUnits);
 
-            JsonObject applicationContext = new JsonObject();
-            // Global Configs
-            applicationContext.addProperty("brand_name", StoreConfig.get().brandName);
-            applicationContext.addProperty("landing_page", StoreConfig.get().landingPage);
-            applicationContext.addProperty("shipping_preference", "NO_SHIPPING"); // Forced
+            JsonObject paymentSource = new JsonObject();
+            JsonObject paypal = new JsonObject();
+            JsonObject experienceContext = new JsonObject();
 
-            applicationContext.addProperty("user_action", "PAY_NOW");
-            applicationContext.addProperty("return_url", "https://example.com/return"); // Placeholder
-            applicationContext.addProperty("cancel_url", "https://example.com/cancel");
-            orderRequest.add("application_context", applicationContext);
+            experienceContext.addProperty("brand_name", StoreConfig.get().brandName);
+            experienceContext.addProperty("shipping_preference", "NO_SHIPPING");
+            experienceContext.addProperty("user_action", "PAY_NOW");
+
+            // Try to force immediate payment to potentially suppress Pay Later
+            experienceContext.addProperty("payment_method_preference", "IMMEDIATE_PAYMENT_REQUIRED");
+
+            // Set landing page
+            experienceContext.addProperty("landing_page", StoreConfig.get().landingPage);
+
+            // Valid URLs are required
+            experienceContext.addProperty("return_url", "https://www.paypal.com");
+            experienceContext.addProperty("cancel_url", "https://www.paypal.com");
+
+            paypal.add("experience_context", experienceContext);
+            paymentSource.add("paypal", paypal);
+            orderRequest.add("payment_source", paymentSource);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(getBaseUrl() + "/v2/checkout/orders"))
                     .header("Authorization", "Bearer " + token)
                     .header("Content-Type", "application/json")
+                    .header("PayPal-Request-Id", java.util.UUID.randomUUID().toString())
                     .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(orderRequest)))
                     .build();
 
