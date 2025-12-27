@@ -102,6 +102,10 @@ public class StoreConfig {
         public String pollingWait = "&7Waiting for payment... (Checks every 5s)";
         public String paymentSuccess = "&aPayment Successful! Processing rewards...";
         public String paymentFailed = "&cError processing payment: %error%";
+        public String priceFormat = "Price: %price% %currency%";
+        public String clickToPreview = "Right-Click to Preview";
+        public String clickToBuy = "Left-Click to Buy";
+        public String buyButton = "Buy for %price% %currency%";
     }
 
     public static class StoreItem {

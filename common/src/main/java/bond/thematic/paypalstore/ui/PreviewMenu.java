@@ -67,7 +67,8 @@ public class PreviewMenu extends ChestMenu {
                 net.minecraft.nbt.ListTag lore = new net.minecraft.nbt.ListTag();
                 if (details.cooldown > 0) {
                     lore.add(net.minecraft.nbt.StringTag.valueOf(Component.Serializer.toJson(
-                            Component.literal("Cooldown: " + details.cooldown + "s").withStyle(ChatFormatting.GRAY))));
+                            Component.literal("Cooldown: " + formatTime(details.cooldown))
+                                    .withStyle(ChatFormatting.GRAY))));
                 } else {
                     lore.add(net.minecraft.nbt.StringTag.valueOf(Component.Serializer.toJson(
                             Component.literal("No Cooldown").withStyle(ChatFormatting.GRAY))));
@@ -103,7 +104,11 @@ public class PreviewMenu extends ChestMenu {
 
         // Buy Button
         ItemStack buy = new ItemStack(Items.EMERALD_BLOCK);
-        buy.setHoverName(Component.literal("Buy for " + item.price + " " + item.currency)
+        String buyStr = StoreConfig.get().messages.buyButton
+                .replace("%price%", String.format("%.2f", item.price))
+                .replace("%currency%", item.currency)
+                .replace("&", "§");
+        buy.setHoverName(Component.literal(buyStr)
                 .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
         inventory.setItem(50, buy);
 
@@ -224,5 +229,25 @@ public class PreviewMenu extends ChestMenu {
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
         return ItemStack.EMPTY;
+    }
+
+    private static String formatTime(long seconds) {
+        if (seconds < 60) {
+            return seconds + "s";
+        }
+        long minutes = seconds / 60;
+        long hours = minutes / 60;
+        long days = hours / 24;
+
+        if (days > 0) {
+            long h = hours % 24;
+            return days + "d " + (h > 0 ? h + "h" : "");
+        }
+        if (hours > 0) {
+            long m = minutes % 60;
+            return hours + "h " + (m > 0 ? m + "m" : "");
+        }
+        long s = seconds % 60;
+        return minutes + "m " + (s > 0 ? s + "s" : "");
     }
 }

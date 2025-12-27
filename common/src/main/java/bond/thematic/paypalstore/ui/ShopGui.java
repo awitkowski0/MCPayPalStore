@@ -37,8 +37,11 @@ public class ShopGui {
             lore.add(Component.empty());
 
             // Price
-            lore.add(Component.literal("Price: " + String.format("%.2f", item.price) + " " + item.currency)
-                    .withStyle(net.minecraft.ChatFormatting.GOLD));
+            String priceStr = StoreConfig.get().messages.priceFormat
+                    .replace("%price%", String.format("%.2f", item.price))
+                    .replace("%currency%", item.currency)
+                    .replace("&", "§");
+            lore.add(Component.literal(priceStr).withStyle(net.minecraft.ChatFormatting.GOLD));
 
             // Requirement
             if (item.requiredPermission != null && !item.requiredPermission.isEmpty()) {
@@ -51,14 +54,16 @@ public class ShopGui {
             }
 
             // Right-click hint
-            if (!item.previewItems.isEmpty()) {
+            if (!item.previewItems.isEmpty() || (!item.kits.isEmpty() || (item.kit != null && !item.kit.isEmpty()))) {
                 lore.add(Component.empty());
-                lore.add(Component.literal("Right-Click to Preview").withStyle(net.minecraft.ChatFormatting.YELLOW));
+                lore.add(Component.literal(StoreConfig.get().messages.clickToPreview.replace("&", "§"))
+                        .withStyle(net.minecraft.ChatFormatting.YELLOW));
             }
 
             // Click hint
             lore.add(Component.empty());
-            lore.add(Component.literal("Left-Click to Buy").withStyle(net.minecraft.ChatFormatting.GREEN));
+            lore.add(Component.literal(StoreConfig.get().messages.clickToBuy.replace("&", "§"))
+                    .withStyle(net.minecraft.ChatFormatting.GREEN));
 
             net.minecraft.nbt.ListTag loreTag = new net.minecraft.nbt.ListTag();
             for (Component c : lore) {
