@@ -55,11 +55,16 @@ public class OrderManager {
                 if (parts.length > 0)
                     messageComp.append(Component.literal(parts[0]));
 
+                ClickEvent.Action action = ClickEvent.Action.OPEN_URL;
+                if (bond.thematic.paypalstore.config.StoreConfig.get().noWebsiteRedirect) {
+                    action = ClickEvent.Action.COPY_TO_CLIPBOARD;
+                }
+
                 Component link = Component.literal("[CLICK TO PAY]")
                         .setStyle(Style.EMPTY
                                 .withColor(ChatFormatting.GREEN)
                                 .withBold(true)
-                                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, response.approveLink)));
+                                .withClickEvent(new ClickEvent(action, response.approveLink)));
                 messageComp.append(link);
 
                 if (parts.length > 1)
@@ -67,10 +72,15 @@ public class OrderManager {
             } else {
                 messageComp.append(Component.literal(orderMsg));
                 // Append valid link anyway if missing?
+                ClickEvent.Action action = ClickEvent.Action.OPEN_URL;
+                if (bond.thematic.paypalstore.config.StoreConfig.get().noWebsiteRedirect) {
+                    action = ClickEvent.Action.COPY_TO_CLIPBOARD;
+                }
+
                 messageComp.append(Component.literal(" ")
                         .append(Component.literal("[OPEN]")
                                 .setStyle(Style.EMPTY.withColor(ChatFormatting.GREEN).withClickEvent(
-                                        new ClickEvent(ClickEvent.Action.OPEN_URL, response.approveLink)))));
+                                        new ClickEvent(action, response.approveLink)))));
             }
 
             player.sendSystemMessage(messageComp);

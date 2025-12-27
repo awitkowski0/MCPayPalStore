@@ -32,6 +32,12 @@ public class StoreConfig {
                             item.description = new ArrayList<>();
                         if (item.commands == null)
                             item.commands = new ArrayList<>();
+                        if (item.kits == null)
+                            item.kits = new ArrayList<>();
+                        // Migration: If 'kit' is set but 'kits' is empty, add it
+                        if (item.kit != null && !item.kit.isEmpty() && item.kits.isEmpty()) {
+                            item.kits.add(item.kit);
+                        }
                     }
                 }
             } catch (IOException e) {
@@ -70,6 +76,9 @@ public class StoreConfig {
         public String brandName = "Thematic Store";
         public String softDescriptor = "PAYPAL *THEMATIC";
         public String landingPage = "BILLING"; // BILLING or LOGIN
+        public boolean disablePayLater = false;
+        public boolean disableVenmo = false;
+        public boolean noWebsiteRedirect = false;
 
         public List<StoreItem> items = new ArrayList<>();
         public Messages messages = new Messages();
@@ -101,7 +110,9 @@ public class StoreConfig {
         public double price;
         public String currency;
         public List<String> commands;
+        @Deprecated
         public String kit;
+        public List<String> kits = new ArrayList<>();
         public String paymentUrl;
         // New Fields
         public List<String> description = new ArrayList<>();

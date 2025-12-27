@@ -41,9 +41,19 @@ public class PreviewMenu extends ChestMenu {
                 inventory.setItem(slot, parseStack(itemStr));
                 slot++;
             }
-        } else if (item.kit != null && !item.kit.isEmpty()) {
+        } else if ((item.kits != null && !item.kits.isEmpty()) || (item.kit != null && !item.kit.isEmpty())) {
+            // Use Kit(s)
+            java.util.List<String> kitsToUse = new java.util.ArrayList<>();
+            if (item.kits != null) {
+                kitsToUse.addAll(item.kits);
+            }
+            // Fallback for deprecated field if kits list is empty
+            if (kitsToUse.isEmpty() && item.kit != null && !item.kit.isEmpty()) {
+                kitsToUse.add(item.kit);
+            }
+
             java.util.List<ItemStack> kitItems = bond.thematic.paypalstore.integration.KitsIntegration
-                    .getKitItems(item.kit);
+                    .getAllKitItems(kitsToUse);
             int slot = 0;
             for (ItemStack stack : kitItems) {
                 if (slot >= 45)
@@ -131,12 +141,17 @@ public class PreviewMenu extends ChestMenu {
                             finalUrl += "&custom=" + this.player.getGameProfile().getName();
                         }
 
+                        net.minecraft.network.chat.ClickEvent.Action action = net.minecraft.network.chat.ClickEvent.Action.OPEN_URL;
+                        if (bond.thematic.paypalstore.config.StoreConfig.get().noWebsiteRedirect) {
+                            action = net.minecraft.network.chat.ClickEvent.Action.COPY_TO_CLIPBOARD;
+                        }
+
                         Component link = Component.literal(" [CLICK TO PAY] ")
                                 .setStyle(net.minecraft.network.chat.Style.EMPTY
                                         .withColor(ChatFormatting.GREEN)
                                         .withBold(true)
                                         .withClickEvent(new net.minecraft.network.chat.ClickEvent(
-                                                net.minecraft.network.chat.ClickEvent.Action.OPEN_URL, finalUrl)));
+                                                action, finalUrl)));
 
                         this.player.sendSystemMessage(Component.literal("Opening payment link for " + item.name + "...")
                                 .withStyle(ChatFormatting.YELLOW).append(link));

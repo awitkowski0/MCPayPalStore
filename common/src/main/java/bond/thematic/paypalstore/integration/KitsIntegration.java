@@ -46,4 +46,16 @@ public class KitsIntegration {
         }
         return Collections.emptyList();
     }
+
+    public static List<ItemStack> getAllKitItems(List<String> kitIds) {
+        if (kitIds == null || kitIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<ItemStack> allItems = new java.util.ArrayList<>();
+        for (String kitId : kitIds) {
+            allItems.addAll(getKitItems(kitId));
+        }
+        return allItems;
+    }
 }
