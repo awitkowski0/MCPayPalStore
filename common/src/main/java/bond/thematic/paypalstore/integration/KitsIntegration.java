@@ -7,15 +7,24 @@ import java.util.Collections;
 import java.util.List;
 
 public class KitsIntegration {
+    public static class KitDetails {
+        public String id;
+        public long cooldown; // In milliseconds or ticks? Usually mod dependent. assuming seconds or ticks.
+        // The Kits mod typically uses seconds for cooldown in config/commands.
+        public List<ItemStack> items;
+
+        public KitDetails(String id, long cooldown, List<ItemStack> items) {
+            this.id = id;
+            this.cooldown = cooldown;
+            this.items = items;
+        }
+    }
+
     public static boolean isLoaded() {
         return Platform.isModLoaded("kits");
     }
 
-    public static List<ItemStack> getKitItems(String kitId) {
-        // We do NOT check isLoaded() because we are reading config files directly.
-        // This allows the preview to work even if the mod isn't loaded (as long as the
-        // configs exist).
-
+    public static KitDetails getKitDetails(String kitId) {
         try {
             java.nio.file.Path kitPath = dev.architectury.platform.Platform.getConfigFolder()
                     .resolve("kits/" + kitId + ".nbt");
@@ -25,26 +34,44 @@ public class KitsIntegration {
                 try {
                     tag = net.minecraft.nbt.NbtIo.readCompressed(kitPath.toFile());
                 } catch (java.util.zip.ZipException | java.io.UTFDataFormatException e) {
-                    // Fallback to uncompressed read
                     tag = net.minecraft.nbt.NbtIo.read(kitPath.toFile());
                 }
 
-                // The Kits mod saves items in an "inventory" list tag
+                long cooldown = 0;
+                if (tag.contains("cooldown")) {
+                    cooldown = tag.getLong("cooldown");
+                }
+
                 if (tag.contains("inventory")) {
-                    net.minecraft.nbt.ListTag inventoryTag = tag.getList("inventory", 10); // 10 = Compound
+                    net.minecraft.nbt.ListTag inventoryTag = tag.getList("inventory", 10);
                     List<ItemStack> items = new java.util.ArrayList<>();
 
                     for (int i = 0; i < inventoryTag.size(); i++) {
                         net.minecraft.nbt.CompoundTag itemTag = inventoryTag.getCompound(i);
                         items.add(ItemStack.of(itemTag));
                     }
-                    return items;
+                    return new KitDetails(kitId, cooldown, items);
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return Collections.emptyList();
+        return new KitDetails(kitId, 0, Collections.emptyList());
+    }
+
+    public static List<ItemStack> getKitItems(String kitId) {
+        return getKitDetails(kitId).items;
+    }
+
+    public static List<KitDetails> getAllKitDetails(List<String> kitIds) {
+        if (kitIds == null || kitIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<KitDetails> details = new java.util.ArrayList<>();
+        for (String kitId : kitIds) {
+            details.add(getKitDetails(kitId));
+        }
+        return details;
     }
 
     public static List<ItemStack> getAllKitItems(List<String> kitIds) {

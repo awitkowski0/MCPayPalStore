@@ -52,14 +52,45 @@ public class PreviewMenu extends ChestMenu {
                 kitsToUse.add(item.kit);
             }
 
-            java.util.List<ItemStack> kitItems = bond.thematic.paypalstore.integration.KitsIntegration
-                    .getAllKitItems(kitsToUse);
+            java.util.List<bond.thematic.paypalstore.integration.KitsIntegration.KitDetails> allDetails = bond.thematic.paypalstore.integration.KitsIntegration
+                    .getAllKitDetails(kitsToUse);
             int slot = 0;
-            for (ItemStack stack : kitItems) {
+            for (bond.thematic.paypalstore.integration.KitsIntegration.KitDetails details : allDetails) {
                 if (slot >= 45)
                     break;
-                inventory.setItem(slot, stack);
+
+                // Header
+                ItemStack header = new ItemStack(Items.PAPER);
+                header.setHoverName(
+                        Component.literal("Kit: " + details.id).withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+
+                net.minecraft.nbt.ListTag lore = new net.minecraft.nbt.ListTag();
+                if (details.cooldown > 0) {
+                    lore.add(net.minecraft.nbt.StringTag.valueOf(Component.Serializer.toJson(
+                            Component.literal("Cooldown: " + details.cooldown + "s").withStyle(ChatFormatting.GRAY))));
+                } else {
+                    lore.add(net.minecraft.nbt.StringTag.valueOf(Component.Serializer.toJson(
+                            Component.literal("No Cooldown").withStyle(ChatFormatting.GRAY))));
+                }
+                header.getOrCreateTagElement("display").put("Lore", lore);
+
+                inventory.setItem(slot, header);
                 slot++;
+
+                for (ItemStack stack : details.items) {
+                    if (slot >= 45)
+                        break;
+                    inventory.setItem(slot, stack);
+                    slot++;
+                }
+
+                // Separator
+                if (slot < 45 && allDetails.indexOf(details) < allDetails.size() - 1) {
+                    ItemStack sep = new ItemStack(Items.GRAY_STAINED_GLASS_PANE);
+                    sep.setHoverName(Component.empty());
+                    inventory.setItem(slot, sep);
+                    slot++;
+                }
             }
         }
 
