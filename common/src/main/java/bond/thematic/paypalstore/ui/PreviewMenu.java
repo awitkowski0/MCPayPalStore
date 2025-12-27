@@ -67,7 +67,7 @@ public class PreviewMenu extends ChestMenu {
                 net.minecraft.nbt.ListTag lore = new net.minecraft.nbt.ListTag();
                 if (details.cooldown > 0) {
                     lore.add(net.minecraft.nbt.StringTag.valueOf(Component.Serializer.toJson(
-                            Component.literal("Cooldown: " + formatTime(details.cooldown))
+                            Component.literal("Cooldown: " + formatTime(details.cooldown / 1000))
                                     .withStyle(ChatFormatting.GRAY))));
                 } else {
                     lore.add(net.minecraft.nbt.StringTag.valueOf(Component.Serializer.toJson(
@@ -108,18 +108,28 @@ public class PreviewMenu extends ChestMenu {
                 .replace("%price%", String.format("%.2f", item.price))
                 .replace("%currency%", item.currency)
                 .replace("&", "§");
-        buy.setHoverName(Component.literal(buyStr)
-                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+
+        if (!buyStr.isEmpty()) {
+            buy.setHoverName(Component.literal(buyStr)
+                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+        } else {
+            buy.setHoverName(Component.empty());
+        }
         inventory.setItem(50, buy);
 
         // Back Button
         ItemStack back = new ItemStack(Items.ARROW);
-        back.setHoverName(Component.literal("Back to Shop").withStyle(ChatFormatting.RED));
+        String backStr = StoreConfig.get().messages.backToShopButton.replace("&", "§");
+        if (!backStr.isEmpty()) {
+            back.setHoverName(Component.literal(backStr).withStyle(ChatFormatting.RED));
+        } else {
+            back.setHoverName(Component.empty());
+        }
         inventory.setItem(53, back);
 
         player.openMenu(new SimpleMenuProvider((syncId, playerInventory, playerEntity) -> {
             return new PreviewMenu(syncId, playerInventory, inventory, player, item);
-        }, Component.literal("Preview: " + item.name)));
+        }, Component.literal("Preview: " + ChatFormatting.stripFormatting(item.name))));
     }
 
     private static ItemStack parseStack(String itemStr) {
@@ -178,9 +188,6 @@ public class PreviewMenu extends ChestMenu {
                         }
 
                         net.minecraft.network.chat.ClickEvent.Action action = net.minecraft.network.chat.ClickEvent.Action.OPEN_URL;
-                        if (bond.thematic.paypalstore.config.StoreConfig.get().noWebsiteRedirect) {
-                            action = net.minecraft.network.chat.ClickEvent.Action.COPY_TO_CLIPBOARD;
-                        }
 
                         Component link = Component.literal(" [CLICK TO PAY] ")
                                 .setStyle(net.minecraft.network.chat.Style.EMPTY

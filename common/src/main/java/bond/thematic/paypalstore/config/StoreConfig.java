@@ -106,6 +106,7 @@ public class StoreConfig {
         public String clickToPreview = "Right-Click to Preview";
         public String clickToBuy = "Left-Click to Buy";
         public String buyButton = "Buy for %price% %currency%";
+        public String backToShopButton = "Back to Shop";
     }
 
     public static class StoreItem {

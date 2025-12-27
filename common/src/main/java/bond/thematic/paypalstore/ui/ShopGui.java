@@ -55,15 +55,21 @@ public class ShopGui {
 
             // Right-click hint
             if (!item.previewItems.isEmpty() || (!item.kits.isEmpty() || (item.kit != null && !item.kit.isEmpty()))) {
-                lore.add(Component.empty());
-                lore.add(Component.literal(StoreConfig.get().messages.clickToPreview.replace("&", "§"))
-                        .withStyle(net.minecraft.ChatFormatting.YELLOW));
+                String previewMsg = StoreConfig.get().messages.clickToPreview.replace("&", "§");
+                if (!previewMsg.isEmpty()) {
+                    lore.add(Component.empty());
+                    lore.add(Component.literal(previewMsg)
+                            .withStyle(net.minecraft.ChatFormatting.YELLOW));
+                }
             }
 
             // Click hint
-            lore.add(Component.empty());
-            lore.add(Component.literal(StoreConfig.get().messages.clickToBuy.replace("&", "§"))
-                    .withStyle(net.minecraft.ChatFormatting.GREEN));
+            String buyMsg = StoreConfig.get().messages.clickToBuy.replace("&", "§");
+            if (!buyMsg.isEmpty()) {
+                lore.add(Component.empty());
+                lore.add(Component.literal(buyMsg)
+                        .withStyle(net.minecraft.ChatFormatting.GREEN));
+            }
 
             net.minecraft.nbt.ListTag loreTag = new net.minecraft.nbt.ListTag();
             for (Component c : lore) {

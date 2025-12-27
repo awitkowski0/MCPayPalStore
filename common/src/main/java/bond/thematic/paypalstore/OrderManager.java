@@ -56,9 +56,6 @@ public class OrderManager {
                     messageComp.append(Component.literal(parts[0]));
 
                 ClickEvent.Action action = ClickEvent.Action.OPEN_URL;
-                if (bond.thematic.paypalstore.config.StoreConfig.get().noWebsiteRedirect) {
-                    action = ClickEvent.Action.COPY_TO_CLIPBOARD;
-                }
 
                 Component link = Component.literal("[CLICK TO PAY]")
                         .setStyle(Style.EMPTY
@@ -73,9 +70,6 @@ public class OrderManager {
                 messageComp.append(Component.literal(orderMsg));
                 // Append valid link anyway if missing?
                 ClickEvent.Action action = ClickEvent.Action.OPEN_URL;
-                if (bond.thematic.paypalstore.config.StoreConfig.get().noWebsiteRedirect) {
-                    action = ClickEvent.Action.COPY_TO_CLIPBOARD;
-                }
 
                 messageComp.append(Component.literal(" ")
                         .append(Component.literal("[OPEN]")
