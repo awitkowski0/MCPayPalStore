@@ -49,32 +49,44 @@ public class OrderManager {
 
             net.minecraft.network.chat.MutableComponent messageComp = Component.literal("");
 
-            // Very basic parser: split by [CLICK TO PAY]
-            if (orderMsg.contains("[CLICK TO PAY]")) {
-                String[] parts = orderMsg.split("\\[CLICK TO PAY\\]");
-                if (parts.length > 0)
-                    messageComp.append(Component.literal(parts[0]));
+            // Robust parsing: find [CLICK TO PAY]
+            String clickText = "[CLICK TO PAY]";
+            int clickIndex = orderMsg.indexOf(clickText);
 
+            if (clickIndex != -1 && response.approveLink != null) {
+                // Pre-part
+                if (clickIndex > 0) {
+                    messageComp.append(Component.literal(orderMsg.substring(0, clickIndex)));
+                }
+
+                // Clickable part
                 ClickEvent.Action action = ClickEvent.Action.OPEN_URL;
-
-                Component link = Component.literal("[CLICK TO PAY]")
+                Component link = Component.literal(clickText)
                         .setStyle(Style.EMPTY
                                 .withColor(ChatFormatting.GREEN)
                                 .withBold(true)
-                                .withClickEvent(new ClickEvent(action, response.approveLink)));
+                                .withClickEvent(new ClickEvent(action, response.approveLink))
+                                .withHoverEvent(new net.minecraft.network.chat.HoverEvent(
+                                        net.minecraft.network.chat.HoverEvent.Action.SHOW_TEXT,
+                                        Component.literal("Click to pay on PayPal"))));
                 messageComp.append(link);
 
-                if (parts.length > 1)
-                    messageComp.append(Component.literal(parts[1]));
+                // Post-part
+                if (clickIndex + clickText.length() < orderMsg.length()) {
+                    messageComp.append(Component.literal(orderMsg.substring(clickIndex + clickText.length())));
+                }
             } else {
+                // Fallback: Just send the message, and append a link if we have one
                 messageComp.append(Component.literal(orderMsg));
-                // Append valid link anyway if missing?
-                ClickEvent.Action action = ClickEvent.Action.OPEN_URL;
 
-                messageComp.append(Component.literal(" ")
-                        .append(Component.literal("[OPEN]")
-                                .setStyle(Style.EMPTY.withColor(ChatFormatting.GREEN).withClickEvent(
-                                        new ClickEvent(action, response.approveLink)))));
+                if (response.approveLink != null) {
+                    messageComp.append(Component.literal(" ")
+                            .append(Component.literal("[OPEN]")
+                                    .setStyle(Style.EMPTY.withColor(ChatFormatting.GREEN)
+                                            .withBold(true)
+                                            .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL,
+                                                    response.approveLink)))));
+                }
             }
 
             player.sendSystemMessage(messageComp);
