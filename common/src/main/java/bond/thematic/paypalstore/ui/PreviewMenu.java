@@ -103,7 +103,7 @@ public class PreviewMenu extends ChestMenu {
         }
 
         // Buy Button
-        ItemStack buy = new ItemStack(Items.EMERALD_BLOCK);
+        ItemStack buy = new ItemStack(Items.GREEN_CONCRETE);
         String buyStr = StoreConfig.get().messages.buyButton
                 .replace("%price%", String.format("%.2f", item.price))
                 .replace("%currency%", item.currency)
@@ -174,7 +174,7 @@ public class PreviewMenu extends ChestMenu {
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
         // Cancel all clicks in top inventory
         if (slotId >= 0 && slotId < this.getContainer().getContainerSize()) {
-            if (slotId == 50) { // Buy Button
+            if (slotId == 49) { // Buy Button
                 if (this.player != null && this.item != null) {
                     this.player.closeContainer();
 
