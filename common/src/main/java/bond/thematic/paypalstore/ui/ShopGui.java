@@ -18,6 +18,11 @@ public class ShopGui {
             if (slot >= 27)
                 break;
 
+            if (!bond.thematic.paypalstore.integration.PermissionIntegration.hasPermission(player,
+                    item.requiredPermission)) {
+                continue;
+            }
+
             net.minecraft.world.item.Item mcItem = BuiltInRegistries.ITEM.get(new ResourceLocation(
                     item.itemIcon != null && !item.itemIcon.isEmpty() ? item.itemIcon : "minecraft:emerald"));
             ItemStack stack = new ItemStack(mcItem);
@@ -25,6 +30,7 @@ public class ShopGui {
             if (item.customModelData > 0) {
                 stack.getOrCreateTag().putInt("CustomModelData", item.customModelData);
             }
+            stack.getOrCreateTag().putString("store_item_id", item.id);
 
             stack.setHoverName(Component.literal(item.name.replace("&", "§")));
 

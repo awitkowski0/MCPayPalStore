@@ -140,13 +140,149 @@ public class PayPalService {
             return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                     .thenApply(HttpResponse::body)
                     .thenApply(body -> {
+                        System.out.println("DEBUG: PayPal Create Order Response: " + body);
                         JsonObject json = gson.fromJson(body, JsonObject.class);
                         String id = json.get("id").getAsString();
                         String approveLink = null;
-                        for (com.google.gson.JsonElement link : json.getAsJsonArray("links")) {
-                            if (link.getAsJsonObject().get("rel").getAsString().equals("approve")) {
-                                approveLink = link.getAsJsonObject().get("href").getAsString();
-                                break;
+                        if (json.has("links")) {
+                            for (com.google.gson.JsonElement link : json.getAsJsonArray("links")) {
+                                String rel = link.getAsJsonObject().get("rel").getAsString();
+                                if (rel.equals("approve") || rel.equals("payer-action")) {
+                                    approveLink = link.getAsJsonObject().get("href").getAsString();
+                                    break;
+                                }
+                            }
+                        }
+                        return new OrderResponse(id, approveLink);
+                    });
+        });
+    }
+
+    // ============================================
+    // SUBSCRIPTION SUPPORT (Billing Plans API)
+    // ============================================
+
+    public static CompletableFuture<String> createProduct(StoreConfig.StoreItem item) {
+        return getAccessToken().thenCompose(token -> {
+            JsonObject productRequest = new JsonObject();
+            productRequest.addProperty("name", item.name.replaceAll("&[0-9a-fk-or]", ""));
+            productRequest.addProperty("description", "Subscription for " + item.name);
+            productRequest.addProperty("type", "DIGITAL");
+            productRequest.addProperty("category", "SOFTWARE");
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(getBaseUrl() + "/v1/catalogs/products"))
+                    .header("Authorization", "Bearer " + token)
+                    .header("Content-Type", "application/json")
+                    .header("PayPal-Request-Id", java.util.UUID.randomUUID().toString())
+                    .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(productRequest)))
+                    .build();
+
+            return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenApply(HttpResponse::body)
+                    .thenApply(body -> {
+                        JsonObject json = gson.fromJson(body, JsonObject.class);
+                        if (json.has("id")) {
+                            return json.get("id").getAsString();
+                        }
+                        throw new RuntimeException("Failed to create product: " + body);
+                    });
+        });
+    }
+
+    public static CompletableFuture<String> createPlan(StoreConfig.StoreItem item, String productId) {
+        return getAccessToken().thenCompose(token -> {
+            JsonObject planRequest = new JsonObject();
+            planRequest.addProperty("product_id", productId);
+            planRequest.addProperty("name", item.name.replaceAll("&[0-9a-fk-or]", "") + " Plan");
+            planRequest.addProperty("description", "Recurring subscription for " + item.name);
+            planRequest.addProperty("status", "ACTIVE");
+
+            JsonObject billingCycle = new JsonObject();
+            JsonObject frequency = new JsonObject();
+            frequency.addProperty("interval_unit", item.interval); // DAY, WEEK, MONTH, YEAR
+            frequency.addProperty("interval_count", item.intervalCount); // e.g. 1
+            billingCycle.add("frequency", frequency);
+
+            JsonObject tenureType = new JsonObject();
+            tenureType.addProperty("tenure_type", "REGULAR"); // Standard recurring
+            billingCycle.addProperty("tenure_type", "REGULAR");
+            billingCycle.addProperty("sequence", 1);
+            billingCycle.addProperty("total_cycles", 0); // 0 = Infinite
+
+            JsonObject pricingScheme = new JsonObject();
+            JsonObject fixedPrice = new JsonObject();
+            fixedPrice.addProperty("value", String.format("%.2f", item.price));
+            fixedPrice.addProperty("currency_code", item.currency);
+            pricingScheme.add("fixed_price", fixedPrice);
+            billingCycle.add("pricing_scheme", pricingScheme);
+
+            com.google.gson.JsonArray cycles = new com.google.gson.JsonArray();
+            cycles.add(billingCycle);
+            planRequest.add("billing_cycles", cycles);
+
+            JsonObject paymentPreferences = new JsonObject();
+            paymentPreferences.addProperty("auto_bill_outstanding", true);
+            paymentPreferences.addProperty("setup_fee_failure_action", "CANCEL");
+            paymentPreferences.addProperty("payment_failure_threshold", 3);
+            planRequest.add("payment_preferences", paymentPreferences);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(getBaseUrl() + "/v1/billing/plans"))
+                    .header("Authorization", "Bearer " + token)
+                    .header("Content-Type", "application/json")
+                    .header("PayPal-Request-Id", java.util.UUID.randomUUID().toString())
+                    .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(planRequest)))
+                    .build();
+
+            return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenApply(HttpResponse::body)
+                    .thenApply(body -> {
+                        JsonObject json = gson.fromJson(body, JsonObject.class);
+                        if (json.has("id")) {
+                            return json.get("id").getAsString();
+                        }
+                        throw new RuntimeException("Failed to create plan: " + body);
+                    });
+        });
+    }
+
+    public static CompletableFuture<OrderResponse> createSubscription(StoreConfig.StoreItem item, String planId,
+            String customId) {
+        return getAccessToken().thenCompose(token -> {
+            JsonObject subRequest = new JsonObject();
+            subRequest.addProperty("plan_id", planId);
+            subRequest.addProperty("custom_id", customId);
+
+            JsonObject applicationContext = new JsonObject();
+            applicationContext.addProperty("brand_name", StoreConfig.get().brandName);
+            applicationContext.addProperty("shipping_preference", "NO_SHIPPING");
+            applicationContext.addProperty("user_action", "SUBSCRIBE_NOW");
+            applicationContext.addProperty("return_url", "https://example.com/return"); // Generic
+            applicationContext.addProperty("cancel_url", "https://example.com/cancel");
+            subRequest.add("application_context", applicationContext);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(getBaseUrl() + "/v1/billing/subscriptions"))
+                    .header("Authorization", "Bearer " + token)
+                    .header("Content-Type", "application/json")
+                    .header("PayPal-Request-Id", java.util.UUID.randomUUID().toString())
+                    .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(subRequest)))
+                    .build();
+
+            return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenApply(HttpResponse::body)
+                    .thenApply(body -> {
+                        JsonObject json = gson.fromJson(body, JsonObject.class);
+                        String id = json.get("id").getAsString();
+                        String approveLink = null;
+                        if (json.has("links")) {
+                            for (com.google.gson.JsonElement link : json.getAsJsonArray("links")) {
+                                String rel = link.getAsJsonObject().get("rel").getAsString();
+                                if (rel.equals("approve")) {
+                                    approveLink = link.getAsJsonObject().get("href").getAsString();
+                                    break;
+                                }
                             }
                         }
                         return new OrderResponse(id, approveLink);
@@ -171,6 +307,40 @@ public class PayPalService {
         });
     }
 
+    public static CompletableFuture<SubscriptionDetails> getSubscriptionDetails(String subscriptionId) {
+        return getAccessToken().thenCompose(token -> {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(getBaseUrl() + "/v1/billing/subscriptions/" + subscriptionId))
+                    .header("Authorization", "Bearer " + token)
+                    .GET()
+                    .build();
+
+            return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenApply(HttpResponse::body)
+                    .thenApply(body -> {
+                        JsonObject json = gson.fromJson(body, JsonObject.class);
+                        String status = json.get("status").getAsString();
+                        String lastPaymentTime = null;
+
+                        if (json.has("billing_info")) {
+                            JsonObject billingInfo = json.getAsJsonObject("billing_info");
+                            if (billingInfo.has("last_payment")) {
+                                JsonObject lastPayment = billingInfo.getAsJsonObject("last_payment");
+                                if (lastPayment.has("time")) {
+                                    lastPaymentTime = lastPayment.get("time").getAsString();
+                                }
+                            }
+                        }
+                        String planId = null;
+                        if (json.has("plan_id")) {
+                            planId = json.get("plan_id").getAsString();
+                        }
+                        return new SubscriptionDetails(status, lastPaymentTime, planId);
+
+                    });
+        });
+    }
+
     public static class OrderResponse {
         public String id;
         public String approveLink;
@@ -178,6 +348,18 @@ public class PayPalService {
         public OrderResponse(String id, String approveLink) {
             this.id = id;
             this.approveLink = approveLink;
+        }
+    }
+
+    public static class SubscriptionDetails {
+        public String status; // ACTIVE, CANCELLED, SUSPENDED, EXPIRED
+        public String lastPaymentTime; // ISO 8601 string
+        public String planId;
+
+        public SubscriptionDetails(String status, String lastPaymentTime, String planId) {
+            this.status = status;
+            this.lastPaymentTime = lastPaymentTime;
+            this.planId = planId;
         }
     }
 }

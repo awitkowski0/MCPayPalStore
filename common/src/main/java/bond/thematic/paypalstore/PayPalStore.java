@@ -2,7 +2,8 @@ package bond.thematic.paypalstore;
 
 import bond.thematic.paypalstore.config.StoreConfig;
 import bond.thematic.paypalstore.commands.StoreCommands;
-import bond.thematic.paypalstore.server.WebhookServer;
+
+import bond.thematic.paypalstore.storage.SubscriptionStorage;
 import com.google.common.base.Suppliers;
 import dev.architectury.registry.registries.RegistrarManager;
 import dev.architectury.event.events.common.LifecycleEvent;
@@ -15,10 +16,23 @@ public class PayPalStore {
 
   public static void init() {
     StoreConfig.load();
+    SubscriptionStorage.load();
     StoreCommands.register();
 
+    dev.architectury.event.events.common.TickEvent.SERVER_POST.register(server -> {
+      long ticks = server.getTickCount();
+      if (ticks % 1200 == 0) {
+        SubscriptionStorage.checkExpiry(server);
+      }
+      // Poll PayPal for renewals every 6 hours (432000 ticks)
+      // 20 ticks * 60 seconds * 60 minutes * 6 = 432000
+      if (ticks % 432000 == 0) {
+        System.out.println("Polling PayPal for subscription renewals...");
+        SubscriptionStorage.checkRenewals(server);
+      }
+    });
+
     LifecycleEvent.SERVER_STARTED.register(server -> {
-      WebhookServer.start(server);
 
       // Generate Documentation
       try {
@@ -144,6 +158,12 @@ public class PayPalStore {
         e.printStackTrace();
       }
     });
-    LifecycleEvent.SERVER_STOPPING.register(server -> WebhookServer.stop());
+
+    dev.architectury.event.events.common.PlayerEvent.PLAYER_JOIN.register(player ->
+
+    {
+      SubscriptionStorage.executePendingCommands(player);
+    });
+
   }
 }

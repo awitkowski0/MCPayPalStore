@@ -4,7 +4,6 @@ import bond.thematic.paypalstore.paypal.PayPalService;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -37,30 +36,40 @@ public class OrderManager {
                     .replace("%id%", response.id)
                     .replace("&", "§");
 
-            MutableComponent messageComp = Component.literal("");
+            net.minecraft.network.chat.MutableComponent messageComp = Component.literal("");
 
             // Robust parsing: find [CLICK TO PAY]
             String clickText = "[CLICK TO PAY]";
             int clickIndex = orderMsg.indexOf(clickText);
 
-            if (clickIndex != -1 && response.approveLink != null) {
-                // Pre-part
-                if (clickIndex > 0) {
-                    messageComp.append(Component.literal(orderMsg.substring(0, clickIndex)));
-                }
+            if (clickIndex != -1) {
+                if (response.approveLink != null) {
+                    // Pre-part
+                    if (clickIndex > 0) {
+                        messageComp.append(Component.literal(orderMsg.substring(0, clickIndex)));
+                    }
 
-                // Clickable part
-                ClickEvent.Action action = ClickEvent.Action.OPEN_URL;
-                Component link = Component.literal(clickText)
-                        .setStyle(Style.EMPTY
-                                .withColor(ChatFormatting.GREEN)
-                                .withBold(true)
-                                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, response.approveLink)));
-                messageComp.append(link);
+                    // Clickable part
+                    ClickEvent.Action action = ClickEvent.Action.OPEN_URL;
+                    Component link = Component.literal(clickText)
+                            .setStyle(Style.EMPTY
+                                    .withColor(ChatFormatting.GREEN)
+                                    .withBold(true)
+                                    .withClickEvent(new ClickEvent(action, response.approveLink))
+                                    .withHoverEvent(new net.minecraft.network.chat.HoverEvent(
+                                            net.minecraft.network.chat.HoverEvent.Action.SHOW_TEXT,
+                                            Component.literal("Click to pay on PayPal"))));
+                    messageComp.append(link);
 
-                // Post-part
-                if (clickIndex + clickText.length() < orderMsg.length()) {
-                    messageComp.append(Component.literal(orderMsg.substring(clickIndex + clickText.length())));
+                    // Post-part
+                    if (clickIndex + clickText.length() < orderMsg.length()) {
+                        messageComp.append(Component.literal(orderMsg.substring(clickIndex + clickText.length())));
+                    }
+                } else {
+                    // LINK IS NULL - Notify op/console and user
+                    Component errorComp = Component.literal(orderMsg)
+                            .append(Component.literal(" [ERROR: No Link]").withStyle(ChatFormatting.RED));
+                    messageComp.append(errorComp);
                 }
             } else {
                 // Fallback: Just send the message, and append a link if we have one

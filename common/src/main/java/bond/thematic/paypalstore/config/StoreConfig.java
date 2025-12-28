@@ -70,8 +70,7 @@ public class StoreConfig {
         public String clientSecret = "YOUR_CLIENT_SECRET";
         public boolean sandbox = true;
         public boolean debug = false;
-        public int webhookPort = 8080;
-        public boolean useWebhooks = false;
+
         // Global Customization
         public String brandName = "Thematic Store";
         public String softDescriptor = "PAYPAL *THEMATIC";
@@ -144,5 +143,16 @@ public class StoreConfig {
             this.itemIcon = itemIcon;
             this.customModelData = customModelData;
         }
+
+        // Subscription Fields
+        public boolean isSubscription = false;
+        public String interval = "MONTH"; // DAY, WEEK, MONTH, YEAR
+        public int intervalCount = 1;
+        public List<String> expiryCommands = new ArrayList<>();
+
+        // Runtime Cache (Not saved to config usually, but helpful if we save config
+        // after creation)
+        public String cachedPlanId;
+        public String cachedProductId;
     }
 }

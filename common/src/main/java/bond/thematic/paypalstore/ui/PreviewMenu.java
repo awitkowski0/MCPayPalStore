@@ -102,14 +102,19 @@ public class PreviewMenu extends ChestMenu {
             inventory.setItem(49, info);
         }
 
-        // Buy Button
+        // Buy/Subscribe Button
         ItemStack buy = new ItemStack(Items.GREEN_CONCRETE);
-        String buyStr = StoreConfig.get().messages.buyButton
-                .replace("%price%", String.format("%.2f", item.price))
-                .replace("%currency%", item.currency)
-                .replace("&", "§");
+        String buyStr;
+        if (item.isSubscription) {
+            buyStr = "Subscribe for " + String.format("%.2f", item.price) + " " + item.currency + " / " + item.interval;
+        } else {
+            buyStr = StoreConfig.get().messages.buyButton
+                    .replace("%price%", String.format("%.2f", item.price))
+                    .replace("%currency%", item.currency)
+                    .replace("&", "§");
+        }
 
-        if (!buyStr.isEmpty()) {
+        if (buyStr != null && !buyStr.isEmpty()) {
             buy.setHoverName(Component.literal(buyStr)
                     .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
         } else {
@@ -174,7 +179,7 @@ public class PreviewMenu extends ChestMenu {
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
         // Cancel all clicks in top inventory
         if (slotId >= 0 && slotId < this.getContainer().getContainerSize()) {
-            if (slotId == 49) { // Buy Button
+            if (slotId == 50) { // Buy Button
                 if (this.player != null && this.item != null) {
                     this.player.closeContainer();
 
@@ -205,14 +210,18 @@ public class PreviewMenu extends ChestMenu {
                         return;
                     }
 
-                    bond.thematic.paypalstore.OrderManager.createOrder(this.player, this.item, () -> {
-                        // Execute commands
-                        for (String cmd : item.commands) {
-                            this.player.getServer().getCommands().performPrefixedCommand(
-                                    this.player.getServer().createCommandSourceStack(),
-                                    cmd.replace("%player%", this.player.getGameProfile().getName()));
-                        }
-                    });
+                    if (item.isSubscription) {
+                        bond.thematic.paypalstore.SubscriptionManager.initiateSubscription(this.player, item);
+                    } else {
+                        bond.thematic.paypalstore.OrderManager.createOrder(this.player, this.item, () -> {
+                            // Execute commands
+                            for (String cmd : item.commands) {
+                                this.player.getServer().getCommands().performPrefixedCommand(
+                                        this.player.getServer().createCommandSourceStack(),
+                                        cmd.replace("%player%", this.player.getGameProfile().getName()));
+                            }
+                        });
+                    }
                 }
             }
             if (slotId == 53) { // Back button

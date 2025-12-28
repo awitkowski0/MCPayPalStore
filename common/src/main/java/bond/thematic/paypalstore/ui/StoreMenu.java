@@ -45,17 +45,24 @@ public class StoreMenu extends ChestMenu {
     }
 
     private void handleInteraction(Player player, int slotId, int button) {
-        StoreConfig.StoreItem item = StoreConfig.get().items.get(slotId); // Simple mapping for now
+        Slot slot = this.slots.get(slotId);
+        if (!slot.hasItem())
+            return;
+
+        net.minecraft.world.item.ItemStack stack = slot.getItem();
+        if (!stack.hasTag() || !stack.getTag().contains("store_item_id"))
+            return;
+
+        String itemId = stack.getTag().getString("store_item_id");
+
+        StoreConfig.StoreItem item = StoreConfig.get().items.stream()
+                .filter(i -> i.id.equals(itemId))
+                .findFirst()
+                .orElse(null);
         if (item != null && player instanceof ServerPlayer serverPlayer) {
             // Open Preview for ANY click
             PreviewMenu.open(serverPlayer, item);
             return; // Always open preview and stop further interaction for now.
-
-            // Check Requirement
-            // For now, we rely on the PreviewMenu to handle the actual purchase logic /
-            // requirements if we move it there.
-            // But since we are routing EVERYTHING to preview, the purchase logic will live
-            // in PreviewMenu.
         }
     }
 
