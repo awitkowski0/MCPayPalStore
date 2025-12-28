@@ -4,6 +4,7 @@ import bond.thematic.paypalstore.paypal.PayPalService;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -36,18 +37,7 @@ public class OrderManager {
                     .replace("%id%", response.id)
                     .replace("&", "§");
 
-            // We need to inject the CLICKABLE link into the message possibly?
-            // The config message is a single string.
-            // If the user wants a clickable part, they might need a split.
-            // Current default: "&bOrder #%id% created! &a[CLICK TO PAY]"
-            // We can detect [CLICK TO PAY] and wrap it?
-            // Or simpler: Send the message, then append the link if not present?
-            // For now, let's keep the hardcoded link style if the message contains [CLICK
-            // TO PAY],
-            // OR just construct it roughly.
-            // Let's assume standard formatting:
-
-            net.minecraft.network.chat.MutableComponent messageComp = Component.literal("");
+            MutableComponent messageComp = Component.literal("");
 
             // Robust parsing: find [CLICK TO PAY]
             String clickText = "[CLICK TO PAY]";
@@ -65,10 +55,7 @@ public class OrderManager {
                         .setStyle(Style.EMPTY
                                 .withColor(ChatFormatting.GREEN)
                                 .withBold(true)
-                                .withClickEvent(new ClickEvent(action, response.approveLink))
-                                .withHoverEvent(new net.minecraft.network.chat.HoverEvent(
-                                        net.minecraft.network.chat.HoverEvent.Action.SHOW_TEXT,
-                                        Component.literal("Click to pay on PayPal"))));
+                                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, response.approveLink)));
                 messageComp.append(link);
 
                 // Post-part
