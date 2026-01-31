@@ -290,6 +290,25 @@ public class PayPalService {
         });
     }
 
+    public static CompletableFuture<String> captureOrder(String orderId) {
+        return getAccessToken().thenCompose(token -> {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(getBaseUrl() + "/v2/checkout/orders/" + orderId + "/capture"))
+                    .header("Authorization", "Bearer " + token)
+                    .header("Content-Type", "application/json")
+                    .header("PayPal-Request-Id", java.util.UUID.randomUUID().toString())
+                    .POST(HttpRequest.BodyPublishers.noBody())
+                    .build();
+
+            return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenApply(HttpResponse::body)
+                    .thenApply(body -> {
+                        JsonObject json = gson.fromJson(body, JsonObject.class);
+                        return json.get("status").getAsString();
+                    });
+        });
+    }
+
     public static CompletableFuture<String> checkOrderStatus(String orderId) {
         return getAccessToken().thenCompose(token -> {
             HttpRequest request = HttpRequest.newBuilder()

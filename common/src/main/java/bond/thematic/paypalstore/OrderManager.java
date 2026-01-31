@@ -130,24 +130,22 @@ public class OrderManager {
 
         scheduler.schedule(() -> {
             PayPalService.checkOrderStatus(orderId).thenAccept(status -> {
-                if ("COMPLETED".equals(status) || "APPROVED".equals(status)) {
-                    // Success!
-                    server.execute(() -> {
-                        // Notify player if online
-                        ServerPlayer player = server.getPlayerList().getPlayer(playerUUID);
-                        if (player != null) {
-                            String successMsg = bond.thematic.paypalstore.config.StoreConfig
-                                    .get().messages.paymentSuccess.replace("&", "§");
-                            player.sendSystemMessage(Component.literal(successMsg));
-                            bond.thematic.paypalstore.api.StoreEvents.PAYMENT_COMPLETED.invoker().onComplete(player,
-                                    orderId);
+                if ("COMPLETED".equals(status)) {
+                    // Already completed
+                    finalizeOrder(server, playerUUID, orderId);
+                } else if ("APPROVED".equals(status)) {
+                    // Try to capture
+                    PayPalService.captureOrder(orderId).thenAccept(captureStatus -> {
+                        if ("COMPLETED".equals(captureStatus)) {
+                            finalizeOrder(server, playerUUID, orderId);
                         } else {
-                            // Player offline, still fire event with null player?
-                            // API says nullable player.
-                            bond.thematic.paypalstore.api.StoreEvents.PAYMENT_COMPLETED.invoker().onComplete(null,
-                                    orderId);
+                            System.out.println("DEBUG: Capture failed or pending: " + captureStatus);
+                            schedulePoll(orderId, server, playerUUID, attempts + 1);
                         }
-                        completeOrder(orderId);
+                    }).exceptionally(e -> {
+                        e.printStackTrace();
+                        schedulePoll(orderId, server, playerUUID, attempts + 1);
+                        return null;
                     });
                 } else {
                     // Continue polling
@@ -160,5 +158,26 @@ public class OrderManager {
                 return null;
             });
         }, 5, TimeUnit.SECONDS);
+    }
+
+    private static void finalizeOrder(net.minecraft.server.MinecraftServer server, java.util.UUID playerUUID,
+            String orderId) {
+        server.execute(() -> {
+            // Notify player if online
+            ServerPlayer player = server.getPlayerList().getPlayer(playerUUID);
+            if (player != null) {
+                String successMsg = bond.thematic.paypalstore.config.StoreConfig
+                        .get().messages.paymentSuccess.replace("&", "§");
+                player.sendSystemMessage(Component.literal(successMsg));
+                bond.thematic.paypalstore.api.StoreEvents.PAYMENT_COMPLETED.invoker().onComplete(player,
+                        orderId);
+            } else {
+                // Player offline, still fire event with null player?
+                // API says nullable player.
+                bond.thematic.paypalstore.api.StoreEvents.PAYMENT_COMPLETED.invoker().onComplete(null,
+                        orderId);
+            }
+            completeOrder(orderId);
+        });
     }
 }
