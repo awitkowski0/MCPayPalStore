@@ -15,7 +15,7 @@ public class ShopGui {
 
         int slot = 0;
         for (StoreConfig.StoreItem item : StoreConfig.get().items) {
-            if (slot >= 27)
+            if (slot >= 26)
                 break;
 
             if (!bond.thematic.paypalstore.integration.PermissionIntegration.hasPermission(player,
@@ -86,6 +86,19 @@ public class ShopGui {
             inventory.setItem(slot, stack);
             slot++;
         }
+
+        net.minecraft.world.item.ItemStack adminShopStack = new ItemStack(net.minecraft.world.item.Items.CHEST);
+        adminShopStack.setHoverName(Component.literal("§bAdmin Shop"));
+        java.util.List<Component> adminShopLore = java.util.List.of(
+                Component.literal("§7Looking for the server's admin shop?"),
+                Component.literal("§eClick to open /shop"));
+        net.minecraft.nbt.ListTag adminShopLoreTag = new net.minecraft.nbt.ListTag();
+        for (Component c : adminShopLore) {
+            adminShopLoreTag.add(net.minecraft.nbt.StringTag.valueOf(Component.Serializer.toJson(c)));
+        }
+        adminShopStack.getOrCreateTagElement("display").put("Lore", adminShopLoreTag);
+        adminShopStack.getOrCreateTag().putString("nav_action", "admin_shop");
+        inventory.setItem(26, adminShopStack);
 
         player.openMenu(new SimpleMenuProvider((syncId, playerInventory, playerEntity) -> {
             return StoreMenu.create(syncId, playerInventory, inventory);

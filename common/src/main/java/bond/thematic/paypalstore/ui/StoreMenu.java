@@ -50,7 +50,19 @@ public class StoreMenu extends ChestMenu {
             return;
 
         net.minecraft.world.item.ItemStack stack = slot.getItem();
-        if (!stack.hasTag() || !stack.getTag().contains("store_item_id"))
+        if (!stack.hasTag())
+            return;
+
+        if (stack.getTag().contains("nav_action") && player instanceof ServerPlayer serverPlayer) {
+            if ("admin_shop".equals(stack.getTag().getString("nav_action"))) {
+                serverPlayer.closeContainer();
+                serverPlayer.getServer().getCommands().performPrefixedCommand(
+                        serverPlayer.createCommandSourceStack(), "shop");
+            }
+            return;
+        }
+
+        if (!stack.getTag().contains("store_item_id"))
             return;
 
         String itemId = stack.getTag().getString("store_item_id");

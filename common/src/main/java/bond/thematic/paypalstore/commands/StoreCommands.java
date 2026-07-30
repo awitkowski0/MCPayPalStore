@@ -9,7 +9,7 @@ public class StoreCommands {
         public static void register() {
                 dev.architectury.event.events.common.CommandRegistrationEvent.EVENT
                                 .register((dispatcher, registry, selection) -> {
-                                        dispatcher.register(Commands.literal("shop")
+                                        dispatcher.register(Commands.literal("buy")
                                                         .executes(context -> {
                                                                 ShopGui.open((ServerPlayer) context.getSource()
                                                                                 .getPlayerOrException());

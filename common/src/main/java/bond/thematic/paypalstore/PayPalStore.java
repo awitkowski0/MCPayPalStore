@@ -111,12 +111,12 @@ public class PayPalStore {
 
                   ## Commands
                   ### Player
-                  - `/shop`: Opens the main shop GUI.
+                  - `/buy`: Opens the main shop GUI. (Previously `/shop` - renamed to avoid colliding with the server's admin shop.)
 
                   ### Admin (OP)
-                  - `/shop reload`: Reloads the configuration file from disk.
-                  - `/shop test <itemId>`: Simulates a purchase for the sender (triggers rewards without payment).
-                  - `/shop give <player> <itemId>`: Forces a purchase logic for a specific player.
+                  - `/buy reload`: Reloads the configuration file from disk.
+                  - `/buy test <itemId>`: Simulates a purchase for the sender (triggers rewards without payment).
+                  - `/buy give <player> <itemId>`: Forces a purchase logic for a specific player.
                   - `/paypal complete-test <orderId>`: Manually completes a pending order (useful if PayPal callback fails).
 
                   ## Developer API
@@ -151,7 +151,7 @@ public class PayPalStore {
                       -   Open `config/paypal_store.json`.
                       -   Paste the `clientId` and `clientSecret`.
                       -   Set `sandbox` to `false` if using Live credentials.
-                      -   Restart the server or run `/shop reload`.
+                      -   Restart the server or run `/buy reload`.
                   """);
         }
       } catch (Exception e) {

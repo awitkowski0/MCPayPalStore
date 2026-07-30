@@ -89,12 +89,12 @@ The configuration file is located at `config/paypal_store.json`.
 
 ## Commands
 ### Player
-- `/shop`: Opens the main shop GUI.
+- `/buy`: Opens the main shop GUI. (Previously `/shop` - renamed to avoid colliding with the server's admin shop, which now lives at `/shop`. Each shop's GUI has a button linking to the other.)
 
 ### Admin (OP)
-- `/shop reload`: Reloads the configuration file from disk.
-- `/shop test <itemId>`: Simulates a purchase for the sender (triggers rewards without payment).
-- `/shop give <player> <itemId>`: Forces a purchase logic for a specific player.
+- `/buy reload`: Reloads the configuration file from disk.
+- `/buy test <itemId>`: Simulates a purchase for the sender (triggers rewards without payment).
+- `/buy give <player> <itemId>`: Forces a purchase logic for a specific player.
 - `/paypal complete-test <orderId>`: Manually completes a pending order (useful if PayPal callback fails).
 
 ## Developer API
