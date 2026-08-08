@@ -12,6 +12,10 @@
 /neoforge/build/
 /neoforge/.gradle
 
+/forge/run/
+/forge/build/
+/forge/.gradle
+
 /common/run/
 /common/build/
 /common/.gradle

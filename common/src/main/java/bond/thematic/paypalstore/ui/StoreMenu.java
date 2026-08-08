@@ -54,10 +54,13 @@ public class StoreMenu extends ChestMenu {
             return;
 
         if (stack.getTag().contains("nav_action") && player instanceof ServerPlayer serverPlayer) {
-            if ("admin_shop".equals(stack.getTag().getString("nav_action"))) {
+            String action = stack.getTag().getString("nav_action");
+            if (ShopGui.NAV_ADMIN_SHOP.equals(action)) {
                 serverPlayer.closeContainer();
                 serverPlayer.getServer().getCommands().performPrefixedCommand(
                         serverPlayer.createCommandSourceStack(), "shop");
+            } else if (ShopGui.NAV_PAGE.equals(action)) {
+                ShopGui.open(serverPlayer, stack.getTag().getInt("nav_page"));
             }
             return;
         }

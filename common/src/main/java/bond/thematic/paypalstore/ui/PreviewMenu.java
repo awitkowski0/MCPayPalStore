@@ -20,89 +20,68 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 public class PreviewMenu extends ChestMenu {
+    /** Slots 0-44 show contents; the bottom row is reserved for navigation and the buy button. */
+    private static final int CONTENT_SLOTS = 45;
+    private static final int SLOTS_PER_ROW = 9;
+
+    private static final int SLOT_PREV = 45;
+    private static final int SLOT_NEXT = 46;
+    private static final int SLOT_PAGE = 48;
+    private static final int SLOT_EXPIRY = 49;
+    private static final int SLOT_BUY = 50;
+    private static final int SLOT_BACK = 53;
+
     private final StoreConfig.StoreItem item;
     private final ServerPlayer player;
+    private final int page;
 
     public PreviewMenu(int syncId, Inventory playerInventory, Container container, ServerPlayer player,
-            StoreConfig.StoreItem item) {
+            StoreConfig.StoreItem item, int page) {
         super(MenuType.GENERIC_9x6, syncId, playerInventory, container, 6);
         this.player = player;
         this.item = item;
+        this.page = page;
     }
 
     public static void open(ServerPlayer player, StoreConfig.StoreItem item) {
+        open(player, item, 0);
+    }
+
+    /**
+     * Renders one page of an item's contents. Previously everything was written into slots 0-44 and
+     * whatever did not fit was dropped silently, so a rank granting a dozen inherited kits appeared
+     * to contain only the first few - the buyer had no way to tell the list had been cut short.
+     */
+    public static void open(ServerPlayer player, StoreConfig.StoreItem item, int page) {
+        java.util.List<ItemStack> content = buildContent(item);
+        int totalPages = Math.max(1, (content.size() + CONTENT_SLOTS - 1) / CONTENT_SLOTS);
+        int currentPage = Math.max(0, Math.min(page, totalPages - 1));
+
         SimpleContainer inventory = new SimpleContainer(54);
-
-        if (!item.previewItems.isEmpty()) {
-            int slot = 0;
-            for (String itemStr : item.previewItems) {
-                if (slot >= 45)
-                    break;
-                inventory.setItem(slot, parseStack(itemStr));
-                slot++;
-            }
-        } else if ((item.kits != null && !item.kits.isEmpty()) || (item.kit != null && !item.kit.isEmpty())) {
-            // Use Kit(s)
-            java.util.List<String> kitsToUse = new java.util.ArrayList<>();
-            if (item.kits != null) {
-                kitsToUse.addAll(item.kits);
-            }
-            // Fallback for deprecated field if kits list is empty
-            if (kitsToUse.isEmpty() && item.kit != null && !item.kit.isEmpty()) {
-                kitsToUse.add(item.kit);
-            }
-
-            java.util.List<bond.thematic.paypalstore.integration.KitsIntegration.KitDetails> allDetails = bond.thematic.paypalstore.integration.KitsIntegration
-                    .getAllKitDetails(kitsToUse);
-            int slot = 0;
-            for (bond.thematic.paypalstore.integration.KitsIntegration.KitDetails details : allDetails) {
-                if (slot >= 45)
-                    break;
-
-                // Header
-                ItemStack header = new ItemStack(Items.PAPER);
-                header.setHoverName(
-                        Component.literal("Kit: " + details.id).withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-
-                net.minecraft.nbt.ListTag lore = new net.minecraft.nbt.ListTag();
-                if (details.cooldown > 0) {
-                    lore.add(net.minecraft.nbt.StringTag.valueOf(Component.Serializer.toJson(
-                            Component.literal("Cooldown: " + formatTime(details.cooldown / 1000))
-                                    .withStyle(ChatFormatting.GRAY))));
-                } else {
-                    lore.add(net.minecraft.nbt.StringTag.valueOf(Component.Serializer.toJson(
-                            Component.literal("No Cooldown").withStyle(ChatFormatting.GRAY))));
-                }
-                header.getOrCreateTagElement("display").put("Lore", lore);
-
-                inventory.setItem(slot, header);
-                slot++;
-
-                for (ItemStack stack : details.items) {
-                    if (slot >= 45)
-                        break;
-                    inventory.setItem(slot, stack);
-                    slot++;
-                }
-
-                // Separator
-                if (slot < 45 && allDetails.indexOf(details) < allDetails.size() - 1) {
-                    ItemStack sep = new ItemStack(Items.GRAY_STAINED_GLASS_PANE);
-                    sep.setHoverName(Component.empty());
-                    inventory.setItem(slot, sep);
-                    slot++;
-                }
-            }
+        int start = currentPage * CONTENT_SLOTS;
+        for (int i = 0; i < CONTENT_SLOTS && start + i < content.size(); i++) {
+            inventory.setItem(i, content.get(start + i));
         }
 
-        // Info Info
+        if (currentPage > 0) {
+            inventory.setItem(SLOT_PREV, navButton("\u00a7ePrevious Page", "\u00a77Page " + currentPage + " of " + totalPages));
+        }
+        if (currentPage < totalPages - 1) {
+            inventory.setItem(SLOT_NEXT, navButton("\u00a7aNext Page", "\u00a77Page " + (currentPage + 2) + " of " + totalPages));
+        }
+        if (totalPages > 1) {
+            ItemStack indicator = new ItemStack(Items.BOOK);
+            indicator.setHoverName(Component.literal("Page " + (currentPage + 1) + " of " + totalPages)
+                    .withStyle(ChatFormatting.WHITE));
+            inventory.setItem(SLOT_PAGE, indicator);
+        }
+
         if (item.expiry != null && !item.expiry.isEmpty()) {
             ItemStack info = new ItemStack(Items.CLOCK);
             info.setHoverName(Component.literal("Expiry: " + item.expiry).withStyle(ChatFormatting.GOLD));
-            inventory.setItem(49, info);
+            inventory.setItem(SLOT_EXPIRY, info);
         }
 
-        // Buy/Subscribe Button
         ItemStack buy = new ItemStack(Items.GREEN_CONCRETE);
         String buyStr;
         if (item.isSubscription) {
@@ -111,30 +90,100 @@ public class PreviewMenu extends ChestMenu {
             buyStr = StoreConfig.get().messages.buyButton
                     .replace("%price%", String.format("%.2f", item.price))
                     .replace("%currency%", item.currency)
-                    .replace("&", "§");
+                    .replace("&", "\u00a7");
         }
-
         if (buyStr != null && !buyStr.isEmpty()) {
-            buy.setHoverName(Component.literal(buyStr)
-                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+            buy.setHoverName(Component.literal(buyStr).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
         } else {
             buy.setHoverName(Component.empty());
         }
-        inventory.setItem(50, buy);
+        inventory.setItem(SLOT_BUY, buy);
 
-        // Back Button
         ItemStack back = new ItemStack(Items.ARROW);
-        String backStr = StoreConfig.get().messages.backToShopButton.replace("&", "§");
+        String backStr = StoreConfig.get().messages.backToShopButton.replace("&", "\u00a7");
         if (!backStr.isEmpty()) {
             back.setHoverName(Component.literal(backStr).withStyle(ChatFormatting.RED));
         } else {
             back.setHoverName(Component.empty());
         }
-        inventory.setItem(53, back);
+        inventory.setItem(SLOT_BACK, back);
 
+        String title = "Preview: " + ChatFormatting.stripFormatting(item.name.replace("&", "\u00a7"));
+        if (totalPages > 1) {
+            title += " (" + (currentPage + 1) + "/" + totalPages + ")";
+        }
+        final int openPage = currentPage;
+        final String finalTitle = title;
         player.openMenu(new SimpleMenuProvider((syncId, playerInventory, playerEntity) -> {
-            return new PreviewMenu(syncId, playerInventory, inventory, player, item);
-        }, Component.literal("Preview: " + ChatFormatting.stripFormatting(item.name.replace("&", "§")))));
+            return new PreviewMenu(syncId, playerInventory, inventory, player, item, openPage);
+        }, Component.literal(finalTitle)));
+    }
+
+    /**
+     * The full contents as a flat slot list, unbounded - paging decides what actually fits.
+     * Each kit starts on a fresh row so its header sits directly above its own items; because a page
+     * is exactly five rows, that alignment survives page boundaries.
+     */
+    private static java.util.List<ItemStack> buildContent(StoreConfig.StoreItem item) {
+        java.util.List<ItemStack> content = new java.util.ArrayList<>();
+
+        if (!item.previewItems.isEmpty()) {
+            for (String itemStr : item.previewItems) {
+                content.add(parseStack(itemStr));
+            }
+            return content;
+        }
+
+        java.util.List<String> kitsToUse = new java.util.ArrayList<>();
+        if (item.kits != null) {
+            kitsToUse.addAll(item.kits);
+        }
+        if (kitsToUse.isEmpty() && item.kit != null && !item.kit.isEmpty()) {
+            kitsToUse.add(item.kit);
+        }
+        if (kitsToUse.isEmpty()) {
+            return content;
+        }
+
+        java.util.List<bond.thematic.paypalstore.integration.KitsIntegration.KitDetails> allDetails =
+                bond.thematic.paypalstore.integration.KitsIntegration.getAllKitDetails(kitsToUse);
+
+        for (bond.thematic.paypalstore.integration.KitsIntegration.KitDetails details : allDetails) {
+            while (content.size() % SLOTS_PER_ROW != 0) {
+                content.add(filler());
+            }
+
+            ItemStack header = new ItemStack(Items.PAPER);
+            header.setHoverName(Component.literal("Kit: " + details.id)
+                    .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+            net.minecraft.nbt.ListTag lore = new net.minecraft.nbt.ListTag();
+            lore.add(net.minecraft.nbt.StringTag.valueOf(Component.Serializer.toJson(
+                    Component.literal(details.cooldown > 0
+                            ? "Cooldown: " + formatTime(details.cooldown / 1000)
+                            : "No Cooldown").withStyle(ChatFormatting.GRAY))));
+            lore.add(net.minecraft.nbt.StringTag.valueOf(Component.Serializer.toJson(
+                    Component.literal(details.items.size() + " item(s)").withStyle(ChatFormatting.DARK_GRAY))));
+            header.getOrCreateTagElement("display").put("Lore", lore);
+            content.add(header);
+
+            content.addAll(details.items);
+        }
+        return content;
+    }
+
+    private static ItemStack filler() {
+        ItemStack pane = new ItemStack(Items.GRAY_STAINED_GLASS_PANE);
+        pane.setHoverName(Component.empty());
+        return pane;
+    }
+
+    private static ItemStack navButton(String name, String subtitle) {
+        ItemStack stack = new ItemStack(Items.ARROW);
+        stack.setHoverName(Component.literal(name));
+        net.minecraft.nbt.ListTag lore = new net.minecraft.nbt.ListTag();
+        lore.add(net.minecraft.nbt.StringTag.valueOf(Component.Serializer.toJson(Component.literal(subtitle))));
+        stack.getOrCreateTagElement("display").put("Lore", lore);
+        return stack;
     }
 
     private static ItemStack parseStack(String itemStr) {
@@ -179,7 +228,17 @@ public class PreviewMenu extends ChestMenu {
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
         // Cancel all clicks in top inventory
         if (slotId >= 0 && slotId < this.getContainer().getContainerSize()) {
-            if (slotId == 50) { // Buy Button
+            // Guard on the slot actually holding a button: when there is no previous/next page the
+            // slot is empty, and clicking bare glass should do nothing rather than re-render.
+            if (slotId == SLOT_PREV && this.slots.get(slotId).hasItem()) {
+                open(this.player, this.item, this.page - 1);
+                return;
+            }
+            if (slotId == SLOT_NEXT && this.slots.get(slotId).hasItem()) {
+                open(this.player, this.item, this.page + 1);
+                return;
+            }
+            if (slotId == SLOT_BUY) { // Buy Button
                 if (this.player != null && this.item != null) {
                     this.player.closeContainer();
 
@@ -224,7 +283,7 @@ public class PreviewMenu extends ChestMenu {
                     }
                 }
             }
-            if (slotId == 53) { // Back button
+            if (slotId == SLOT_BACK) { // Back button
                 if (player instanceof ServerPlayer serverPlayer) {
                     ShopGui.open(serverPlayer);
                 }
